@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="MeetSync AI — turns every meeting recording into executed tasks. Transcribes, extracts decisions, auto-assigns, and syncs to Jira, Notion, and Slack." />
+    <meta name="theme-color" content="#5B6AF0" />
+    <meta property="og:title" content="MeetSync AI — Action Engine" />
+    <meta property="og:description" content="Turns meetings into executed tasks automatically." />
+    <meta property="og:type" content="website" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>MeetSync AI — Action Engine</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+    <!-- Prevent flash of wrong theme before React loads -->
+    <script>
+      (function() {
+        var t = localStorage.getItem('theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+        if (t === 'light') {
+          document.documentElement.style.background = '#F4F5FA';
+        } else {
+          document.documentElement.style.background = '#0D0F14';
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

@@ -1,0 +1,8 @@
+User-agent: *
+Disallow: /api/
+Disallow: /share/
+
+# Allow public share pages to be indexed
+Allow: /share/
+
+Sitemap: https://yourdomain.com/sitemap.xml
