@@ -20,10 +20,15 @@ const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
 const SUPPORTED = ['slack', 'notion', 'zoom', 'google_meet'];
 
+// function callbackUrl(req, provider) {
+//   const host = req.headers.host || 'localhost:3001';
+//   const protocol = req.protocol || 'http';
+//   return `${protocol}://${host}/api/oauth/${provider}/callback`;
+// }
+
 function callbackUrl(req, provider) {
-  const host = req.headers.host || 'localhost:3001';
-  const protocol = req.protocol || 'http';
-  return `${protocol}://${host}/api/oauth/${provider}/callback`;
+  const baseUrl = process.env.BASE_URL || 'http://localhost:3001';
+  return `${baseUrl}/api/oauth/${provider}/callback`;
 }
 
 function buildAuthUrl(req, provider, state) {
