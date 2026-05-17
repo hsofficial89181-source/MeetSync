@@ -3,46 +3,23 @@
  *
  * FIXED: import paths corrected (this file lives in src/jobs/, not src/)
  *
- *  - Every 15 min: sync Jira statuses back → MeetSync
  *  - Every 1 hour:  send overdue task digest emails
  *  - Every 24 hours: send due-date reminders (24h before due)
  */
 
 const { pool }            = require('../models/migrate');   // ← was './models/migrate'
-const { syncJiraStatuses }= require('../services/jira');    // ← was './services/jira'
 const { log }             = require('../utils/logger');      // ← was missing entirely
 
 function startScheduledJobs() {
   log.info('Scheduled jobs started');
 
-  // Jira bidirectional sync — every 15 minutes
-  setInterval(runJiraSync,     15 * 60 * 1000);
   // Overdue digest — every hour
   setInterval(runOverdueDigest, 60 * 60 * 1000);
   // Due-date reminders — every hour (sends 24h-ahead reminders once per day)
   setInterval(runDueDateReminders, 60 * 60 * 1000);
 
   // Run once at startup after a short delay
-  setTimeout(runJiraSync, 30 * 1000);
-}
-
-// ── Jira sync ──────────────────────────────────────────────────────────────
-async function runJiraSync() {
-  try {
-    const { rows: integrations } = await pool.query(
-      "SELECT workspace_id, config FROM integrations WHERE provider='jira' AND enabled=TRUE"
-    );
-    for (const i of integrations) {
-      await syncJiraStatuses(i.config).catch(err =>
-        log.warn('Jira sync failed', { workspace: i.workspace_id, error: err.message })
-      );
-    }
-    if (integrations.length > 0) {
-      log.info(`Jira sync complete`, { workspaces: integrations.length });
-    }
-  } catch (err) {
-    log.error('Jira sync job error', { error: err.message });
-  }
+  setTimeout(runOverdueDigest, 30 * 1000);
 }
 
 // ── Overdue digest ─────────────────────────────────────────────────────────

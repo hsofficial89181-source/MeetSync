@@ -32,6 +32,8 @@ const shareRouter         = require('./routes/share');
 const healthRouter        = require('./routes/health');
 const webhookZoomRouter   = require('./routes/webhookZoom');
 const webhookGoogleRouter = require('./routes/webhookGoogle');
+const adminRouter         = require('./routes/admin');
+const oauthRouter         = require('./routes/oauth');
 
 const app    = express();
 const server = http.createServer(app);
@@ -73,6 +75,8 @@ app.use('/api/settings',      settingsRouter);
 app.use('/api/export',        exportRouter);
 app.use('/api/meetings',      shareRouter);         // POST /api/meetings/:id/share, DELETE
 app.use('/api/share',         shareRouter);         // GET  /api/share/public/:token
+app.use('/api/admin',         adminRouter);         // Admin routes (Super Admin only)
+app.use('/api/oauth',         oauthRouter);         // OAuth 2.0 integration flows
 
 // 404
 app.use('/api/*', (req, res) => {

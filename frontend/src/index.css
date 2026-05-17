@@ -34,7 +34,7 @@
 }
 
 @layer components {
-  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+  .card { background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
   .btn {
     display: inline-flex; align-items: center; gap: 6px;
     padding: 7px 14px; border-radius: 8px; font-size: 13px; font-weight: 500;
@@ -70,10 +70,10 @@
   }
   .nav-item:hover { background: var(--surface2); color: var(--text); }
   .nav-item.active { background: rgba(91,106,240,0.1); color: var(--accent2); border-color: rgba(91,106,240,0.25); }
-  .stat-card  { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+  .stat-card  { background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
   .task-card  { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 8px; cursor: pointer; transition: border-color 0.15s; }
   .task-card:hover { border-color: var(--border2); }
-  .kanban-col { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+  .kanban-col { background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
 }
 
 @keyframes wave     { 0%,100%{transform:scaleY(1)} 50%{transform:scaleY(0.35)} }
@@ -91,6 +91,7 @@
 @media (max-width: 768px) {
   .sidebar-mobile-hidden { display: none !important; }
 
+  .app-layout    { grid-template-columns: 1fr !important; }
   .stats-grid    { grid-template-columns: 1fr 1fr !important; }
   .two-col       { grid-template-columns: 1fr !important; }
   .analysis-layout { grid-template-columns: 1fr !important; }
@@ -107,8 +108,36 @@
   .kanban-col    { min-width: 260px; flex-shrink: 0; }
 
   .page-content  { padding: 14px !important; }
+  
+  .mobile-only { display: block !important; }
+  
+  aside {
+    position: fixed !important;
+    left: -220px;
+    top: 0;
+    bottom: 0;
+    width: 220px;
+    z-index: 300;
+    transition: left 0.2s ease;
+  }
+  
+  .sidebar-overlay.visible + aside {
+    left: 0;
+  }
+
+  .sidebar-overlay.visible {
+    display: block !important;
+  }
 }
 
 @media (max-width: 480px) {
   .stats-grid { grid-template-columns: 1fr !important; }
 }
+
+/* Admin layout: collapse grid to single column on mobile */
+@media (max-width: 768px) {
+  .admin-layout {
+    grid-template-columns: 1fr !important;
+  }
+}
+

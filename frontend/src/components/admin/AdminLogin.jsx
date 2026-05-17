@@ -1,32 +1,39 @@
-import React, { useState } from 'react';
-import { useNavigate, Link, useLocation } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Zap, Eye, EyeOff, Loader2 } from 'lucide-react';
-import { useAuthStore } from '../../store/auth';
+import { useAdminAuthStore } from '../../store/adminAuth';
 
-export default function Login() {
-  const navigate    = useNavigate();
-  const location    = useLocation();
-  const { login }   = useAuthStore();
-  const from        = location.state?.from?.pathname || '/dashboard';
+export default function AdminLogin() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPw, setShowPw] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  
+  const { login, isAuthenticated, error, clearError } = useAdminAuthStore();
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  const [form,    setForm]    = useState({ email: '', password: '' });
-  const [showPw,  setShowPw]  = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState('');
-
-  async function handleSubmit(e) {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-    try {
-      await login(form.email, form.password);
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      const from = location.state?.from?.pathname || '/admin';
       navigate(from, { replace: true });
-    } catch (err) {
-      setError(err.message || 'Invalid email or password');
-    } finally {
-      setLoading(false);
     }
-  }
+  }, [isAuthenticated, navigate, location]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    clearError();
+    setIsLoading(true);
+
+    try {
+      await login(email, password);
+    } catch (err) {
+      // Error is handled by store
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div style={{
@@ -43,10 +50,10 @@ export default function Login() {
             <Zap size={24} color="white" fill="white" />
           </div>
           <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.5px', color: 'var(--text)' }}>
-            MeetSync AI
+            MeetSync Admin
           </div>
           <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 4 }}>
-            Sign in to your workspace
+            Sign in to the Admin Panel
           </div>
         </div>
 
@@ -67,35 +74,30 @@ export default function Login() {
           <form onSubmit={handleSubmit}>
             <div style={{ marginBottom: 16 }}>
               <label style={{ fontSize: 12, color: 'var(--text2)', display: 'block', marginBottom: 6 }}>
-                Email
+                Admin Email
               </label>
               <input
                 className="input"
                 type="email"
-                placeholder="you@company.com"
-                value={form.email}
-                onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                placeholder="admin@meetsync.ai"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
                 required
                 autoFocus
               />
             </div>
 
             <div style={{ marginBottom: 24 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                <label style={{ fontSize: 12, color: 'var(--text2)' }}>
-                  Password
-                </label>
-                <Link to="/forgot-password" style={{ fontSize: 12, color: 'var(--accent2)', textDecoration: 'none' }}>
-                  Forgot password?
-                </Link>
-              </div>
+              <label style={{ fontSize: 12, color: 'var(--text2)', display: 'block', marginBottom: 6 }}>
+                Password
+              </label>
               <div style={{ position: 'relative' }}>
                 <input
                   className="input"
                   type={showPw ? 'text' : 'password'}
                   placeholder="••••••••"
-                  value={form.password}
-                  onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
                   required
                   style={{ paddingRight: 40 }}
                 />
@@ -117,19 +119,19 @@ export default function Login() {
               type="submit"
               className="btn btn-primary"
               style={{ width: '100%', justifyContent: 'center', padding: '10px 16px' }}
-              disabled={loading}
+              disabled={isLoading}
             >
-              {loading
+              {isLoading
                 ? <><Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> Signing in…</>
-                : 'Sign in'}
+                : 'Sign in to Admin'}
             </button>
           </form>
         </div>
 
         <p style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: 'var(--text2)' }}>
-          No account?{' '}
-          <Link to="/register" style={{ color: 'var(--accent2)', textDecoration: 'none' }}>
-            Create your workspace →
+          Not an admin?{' '}
+          <Link to="/login" style={{ color: 'var(--accent2)', textDecoration: 'none' }}>
+            User Login →
           </Link>
         </p>
 

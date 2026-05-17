@@ -167,6 +167,17 @@ CREATE TABLE IF NOT EXISTS share_links (
   created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_share_links_token ON share_links(token);
+
+-- OTP table for forgot-password flow
+CREATE TABLE IF NOT EXISTS password_reset_otps (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    UUID REFERENCES users(id) ON DELETE CASCADE,
+  otp_hash   TEXT NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  used       BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_otp_user ON password_reset_otps(user_id);
 `;
 
 async function migrate() {

@@ -83,7 +83,7 @@ export default function Layout() {
       </div>
 
       {/* Nav */}
-      <nav style={{ padding: '14px 12px', flex: 1, overflowY: 'auto' }}>
+      <nav style={{ padding: '14px 12px', flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
         <div style={{ fontSize: 10, color: 'var(--text3)', letterSpacing: '1.5px', textTransform: 'uppercase', padding: '0 8px', marginBottom: 6 }}>Workspace</div>
         {NAV_MAIN.map(({ to, icon: Icon, label }) => (
           <NavLink key={to} to={to} onClick={() => setMobileSidebarOpen(false)} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
@@ -96,6 +96,12 @@ export default function Layout() {
             <Icon size={14} /><span>{label}</span>
           </NavLink>
         ))}
+
+        {/* Footer links */}
+        <div style={{ marginTop: 'auto', paddingTop: '24px', display: 'flex', flexDirection: 'column', gap: '8px', padding: '24px 8px 8px' }}>
+          <NavLink to="/privacy-policy" onClick={() => setMobileSidebarOpen(false)} style={{ fontSize: 11, color: 'var(--text3)', textDecoration: 'none', transition: 'color 0.15s' }} onMouseEnter={e => e.currentTarget.style.color = 'var(--text2)'} onMouseLeave={e => e.currentTarget.style.color = 'var(--text3)'}>Privacy Policy</NavLink>
+          <NavLink to="/terms-conditions" onClick={() => setMobileSidebarOpen(false)} style={{ fontSize: 11, color: 'var(--text3)', textDecoration: 'none', transition: 'color 0.15s' }} onMouseEnter={e => e.currentTarget.style.color = 'var(--text2)'} onMouseLeave={e => e.currentTarget.style.color = 'var(--text3)'}>Terms & Conditions</NavLink>
+        </div>
       </nav>
 
       {/* User + theme toggle */}
@@ -151,13 +157,13 @@ export default function Layout() {
   );
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', minHeight: '100vh' }}>
+    <div className="app-layout" style={{ display: 'grid', gridTemplateColumns: '220px 1fr', minHeight: '100vh' }}>
 
       {/* Mobile overlay */}
       {mobileSidebarOpen && (
         <div
           onClick={() => setMobileSidebarOpen(false)}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 299, display: 'none' }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', zIndex: 299, display: 'none' }}
           className="sidebar-overlay visible"
         />
       )}

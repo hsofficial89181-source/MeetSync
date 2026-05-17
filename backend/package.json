@@ -12,7 +12,8 @@
     "test:integration": "jest tests/integration --runInBand",
     "test:api": "jest tests/api --runInBand --forceExit",
     "test:coverage": "jest --coverage --runInBand --forceExit",
-    "seed": "node scripts/seed.js"
+    "seed": "node scripts/seed.js",
+    "seed:superadmin": "node src/scripts/seedSuperAdmin.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.20.0",
@@ -33,6 +34,7 @@
     "nodemailer": "^8.0.5",
     "openai": "^4.28.0",
     "pg": "^8.11.3",
+    "resend": "^6.12.3",
     "uuid": "^9.0.1",
     "ws": "^8.16.0"
   },

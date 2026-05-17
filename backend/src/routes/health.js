@@ -102,8 +102,6 @@ router.get('/detailed', async (req, res) => {
       openai:     !!process.env.OPENAI_API_KEY,
       slack:      !!process.env.SLACK_BOT_TOKEN,
       notion:     !!process.env.NOTION_TOKEN,
-      jira:       !!process.env.JIRA_API_TOKEN,
-      linear:     !!process.env.LINEAR_API_KEY,
       zoom:       !!process.env.ZOOM_CLIENT_ID,
       s3:         !!process.env.AWS_S3_BUCKET,
       smtp:       !!process.env.SMTP_HOST,

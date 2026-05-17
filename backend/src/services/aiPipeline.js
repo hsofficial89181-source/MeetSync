@@ -1,8 +1,8 @@
 /**
- * AI Pipeline Service — v3 (complete)
+ * AI Pipeline Service — v3
  *
  * Integrations pushed after every meeting:
- *   Jira · Notion · Slack · Linear · Microsoft Teams · GitHub Issues · Zapier/Make webhook
+ *   Slack · Notion
  */
 
 const Anthropic = require('@anthropic-ai/sdk');
@@ -12,13 +12,8 @@ const fs        = require('fs');
 const { pool }  = require('../models/migrate');
 const { transcribeAudio }         = require('./transcription');
 const { broadcastToMeeting }      = require('./websocket');
-const { createJiraIssues }        = require('./jira');
 const { createNotionPage }        = require('./notion');
 const { postSlackSummary }        = require('./slack');
-const { createLinearIssues }      = require('./linear');
-const { postTeamsSummary }        = require('./teams');
-const { createGitHubIssues }      = require('./github');
-const { fireWebhook }             = require('./webhook');
 const { matchTeamMembers }        = require('./teamMatcher');
 const { sendTaskAssignmentEmails }= require('./email');
 const { log }                     = require('../utils/logger');
@@ -232,14 +227,8 @@ async function pushToIntegrations(meetingId, workspaceId, tasks, extracted) {
   const results = await Promise.allSettled(
     integrations.map(i => {
       switch (i.provider) {
-        case 'jira':    return createJiraIssues(tasks, meeting, i.config);
         case 'notion':  return createNotionPage(meeting, tasks, extracted.decisions, extracted.summary, i.config);
         case 'slack':   return postSlackSummary(meeting, tasks, extracted.decisions, extracted.summary, i.config);
-        case 'linear':  return createLinearIssues(tasks, meeting, i.config);
-        case 'teams':   return postTeamsSummary(meeting, tasks, extracted.decisions, extracted.summary, i.config);
-        case 'github':  return createGitHubIssues(tasks, meeting, i.config);
-        case 'zapier':
-        case 'webhook': return fireWebhook(meeting, tasks, extracted.decisions, extracted.summary, i.config);
         default:        return Promise.resolve();
       }
     })

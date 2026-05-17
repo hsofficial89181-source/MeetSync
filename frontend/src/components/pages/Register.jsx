@@ -103,6 +103,11 @@ export default function Register() {
             Sign in
           </Link>
         </p>
+
+        <div style={{ textAlign: 'center', marginTop: 32, fontSize: 12, color: 'var(--text3)' }}>
+          <Link to="/privacy-policy" style={{ color: 'inherit', textDecoration: 'none', marginRight: 16 }}>Privacy Policy</Link>
+          <Link to="/terms-conditions" style={{ color: 'inherit', textDecoration: 'none' }}>Terms & Conditions</Link>
+        </div>
       </div>
     </div>
   );

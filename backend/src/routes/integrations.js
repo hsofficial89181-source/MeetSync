@@ -1,7 +1,7 @@
 /**
- * /api/integrations — v3 (complete)
+ * /api/integrations — v3
  *
- * Providers: slack · notion · jira · linear · teams · github · zapier · zoom · google_meet
+ * Providers: slack · notion · zoom · google_meet
  *
  * GET    /              list all integrations and connection status
  * POST   /:provider     connect/configure
@@ -19,7 +19,7 @@ const router = express.Router();
 router.use(requireAuth);
 
 const SUPPORTED_PROVIDERS = [
-  'slack', 'notion', 'jira', 'linear', 'teams', 'github', 'zapier', 'zoom', 'google_meet',
+  'slack', 'notion', 'zoom', 'google_meet',
 ];
 
 // ── GET / ──────────────────────────────────────────────────────────────────
@@ -100,46 +100,13 @@ router.post('/:provider/test', async (req, res, next) => {
         break;
       }
 
-      case 'jira': {
-        const auth = Buffer.from(
-          `${cfg.email || process.env.JIRA_EMAIL}:${cfg.api_token || process.env.JIRA_API_TOKEN}`
-        ).toString('base64');
-        const r = await axios.get(
-          `${cfg.base_url || process.env.JIRA_BASE_URL}/rest/api/3/myself`,
-          { headers: { Authorization: `Basic ${auth}`, Accept: 'application/json' } }
-        );
-        message = `Connected as ${r.data.displayName}`;
+      case 'zoom': {
+        message = cfg.access_token ? 'Zoom OAuth connected' : 'Zoom webhook configured';
         break;
       }
 
-      case 'linear': {
-        const { testLinearConnection } = require('../services/linear');
-        message = await testLinearConnection(cfg);
-        break;
-      }
-
-      case 'teams': {
-        const { testTeamsConnection } = require('../services/teams');
-        message = await testTeamsConnection(cfg);
-        break;
-      }
-
-      case 'github': {
-        const { testGitHubConnection } = require('../services/github');
-        message = await testGitHubConnection(cfg);
-        break;
-      }
-
-      case 'zapier':
-      case 'webhook': {
-        const { testWebhook } = require('../services/webhook');
-        message = await testWebhook(cfg);
-        break;
-      }
-
-      case 'zoom':
       case 'google_meet': {
-        message = `${provider} webhook configured`;
+        message = cfg.refresh_token ? 'Google Meet OAuth connected' : 'Google Meet configured';
         break;
       }
     }

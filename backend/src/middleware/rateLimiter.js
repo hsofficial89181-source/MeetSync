@@ -23,4 +23,11 @@ const uploadLimiter = rateLimit({
   message: { error: 'Upload limit reached. Max 20 uploads per hour.' },
 });
 
-module.exports = { apiLimiter, authLimiter, uploadLimiter };
+// OTP limiter: 5 OTP requests per 15 minutes per IP
+const otpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: { error: 'Too many password reset attempts. Please try again in 15 minutes.' },
+});
+
+module.exports = { apiLimiter, authLimiter, uploadLimiter, otpLimiter };
