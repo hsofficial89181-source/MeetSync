@@ -17,6 +17,7 @@ const { postSlackSummary }        = require('./slack');
 const { matchTeamMembers }        = require('./teamMatcher');
 const { sendTaskAssignmentEmails }= require('./email');
 const { log }                     = require('../utils/logger');
+const { recordUsage }             = require('./usage');
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -58,6 +59,21 @@ async function processMeeting(meetingId, localPath, onProgress = () => {}) {
     fs.unlink(localPath, () => {});
     broadcast(meetingId, 'step', { step: 'transcribed', label: 'Transcript ready', pct: 35 });
     onProgress('transcribed', 35);
+
+    // Calculate duration from transcript and record usage
+    const { rows: [meetingRow] } = await pool.query('SELECT workspace_id FROM meetings WHERE id=$1', [meetingId]);
+    if (transcript.length > 0) {
+      const lastSeg = transcript[transcript.length - 1];
+      const durationSeconds = Math.round(lastSeg.end || lastSeg.start || 0);
+      if (durationSeconds > 0) {
+        await pool.query('UPDATE meetings SET duration_seconds=$1 WHERE id=$2', [durationSeconds, meetingId]);
+        if (meetingRow?.workspace_id) {
+          await recordUsage(meetingRow.workspace_id, meetingId, durationSeconds).catch(err =>
+            log.warn('Failed to record usage', { meetingId, error: err.message })
+          );
+        }
+      }
+    }
 
     // ── Cancellation check (before expensive Claude call) ──────
     const { rows: [checkAfterTranscript] } = await pool.query('SELECT status FROM meetings WHERE id=$1', [meetingId]);
@@ -122,6 +138,7 @@ async function processMeeting(meetingId, localPath, onProgress = () => {}) {
     log.error('Pipeline failed', { meetingId, error: err.message });
     await updateStatus(meetingId, 'error', err.message);
     broadcast(meetingId, 'error', { message: err.message });
+    fs.unlink(localPath, () => {});
     throw err;
   }
 }
@@ -244,9 +261,14 @@ async function pushToIntegrations(meetingId, workspaceId, tasks, extracted) {
 async function cancelMeeting(meetingId) {
   await updateStatus(meetingId, 'cancelled');
   try {
-    const jobs = await pipelineQueue.getJobs(['waiting', 'delayed', 'prioritized']);
+    const jobs = await pipelineQueue.getJobs(['waiting', 'delayed', 'prioritized', 'active']);
     const target = jobs.find(j => j.data?.meetingId === meetingId);
-    if (target) await target.remove();
+    if (target) {
+      if (target.data?.localPath) {
+        fs.unlink(target.data.localPath, () => {});
+      }
+      await target.remove();
+    }
   } catch (err) {
     log.warn('Could not remove queued job for cancelled meeting', { meetingId, error: err.message });
   }

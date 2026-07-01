@@ -10,6 +10,7 @@ import Team          from './components/pages/Team';
 import Analytics     from './components/pages/Analytics';
 import Search        from './components/pages/Search';
 import Settings      from './components/pages/Settings';
+import Billing        from './components/pages/Billing';
 import Login          from './components/pages/Login';
 import Register       from './components/pages/Register';
 import ForgotPassword from './components/pages/ForgotPassword';
@@ -27,11 +28,12 @@ import AdminLogin       from './components/admin/AdminLogin';
 import AdminLayout      from './components/admin/AdminLayout';
 import AdminDashboard   from './components/admin/tabs/AdminDashboard';
 import UserManagementTab from './components/admin/tabs/UserManagementTab';
+import SubscriptionsTab  from './components/admin/tabs/SubscriptionsTab';
 import AnalyticsTab     from './components/admin/tabs/AnalyticsTab';
-import IntegrationsTab  from './components/admin/tabs/IntegrationsTab';
 import SettingsTab      from './components/admin/tabs/SettingsTab';
 import WorkspaceDetail  from './components/admin/pages/WorkspaceDetail';
 import WorkspaceEdit    from './components/admin/pages/WorkspaceEdit';
+import SubscriptionDetail from './components/admin/pages/SubscriptionDetail';
 
 import { useStore }      from './store';
 import { useAuthStore }  from './store/auth';
@@ -114,6 +116,7 @@ export default function App() {
           <Route path="team"         element={<ErrorBoundary><Team /></ErrorBoundary>} />
           <Route path="search"       element={<ErrorBoundary><Search /></ErrorBoundary>} />
           <Route path="settings"     element={<ErrorBoundary><Settings /></ErrorBoundary>} />
+          <Route path="billing"       element={<ErrorBoundary><Billing /></ErrorBoundary>} />
         </Route>
 
         {/* Admin Panel Routes */}
@@ -123,8 +126,9 @@ export default function App() {
           <Route path="users" element={<UserManagementTab />} />
           <Route path="workspaces/:id" element={<WorkspaceDetail />} />
           <Route path="workspaces/:id/edit" element={<WorkspaceEdit />} />
+          <Route path="subscriptions" element={<SubscriptionsTab />} />
+          <Route path="subscriptions/:workspaceId" element={<SubscriptionDetail />} />
           <Route path="analytics" element={<AnalyticsTab />} />
-          <Route path="integrations" element={<IntegrationsTab />} />
           <Route path="settings" element={<SettingsTab />} />
         </Route>
 

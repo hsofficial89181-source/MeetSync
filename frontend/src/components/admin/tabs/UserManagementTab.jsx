@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Search, RefreshCw, Users, Layout, Activity, 
-  Eye, Edit2, Trash2, AlertTriangle, X 
+  Eye, Edit2, Trash2, AlertTriangle, X,
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
 import adminApi from '../../../services/adminApi';
 
@@ -11,6 +12,8 @@ export default function UserManagementTab() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [notification, setNotification] = useState(null);
   const navigate = useNavigate();
@@ -53,6 +56,96 @@ export default function UserManagementTab() {
     w.slug.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (w.admin?.email && w.admin.email.toLowerCase().includes(searchQuery.toLowerCase()))
   );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
+  const totalPages = Math.ceil(filteredWorkspaces.length / pageSize);
+  const paginatedWorkspaces = filteredWorkspaces.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  const renderPagination = () => {
+    if (filteredWorkspaces.length === 0) return null;
+    const start = (currentPage - 1) * pageSize + 1;
+    const end = Math.min(currentPage * pageSize, filteredWorkspaces.length);
+    const pages = [];
+    const maxVisible = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+    if (endPage - startPage < maxVisible - 1) startPage = Math.max(1, endPage - maxVisible + 1);
+    for (let i = startPage; i <= endPage; i++) pages.push(i);
+
+    return (
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '16px 24px',
+        borderTop: '1px solid var(--border)',
+        flexWrap: 'wrap',
+        gap: '12px',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span style={{ fontSize: '13px', color: 'var(--text2)' }}>
+            Showing {start}–{end} of {filteredWorkspaces.length}
+          </span>
+          <select
+            value={pageSize}
+            onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
+            style={{
+              padding: '4px 8px', borderRadius: '6px', border: '1px solid var(--border)',
+              background: 'var(--surface2)', color: 'var(--text)', fontSize: '12px', outline: 'none',
+            }}
+          >
+            {[10, 25, 50].map(s => <option key={s} value={s}>{s} / page</option>)}
+          </select>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <button
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+            className="btn btn-ghost btn-sm"
+            style={{ opacity: currentPage === 1 ? 0.4 : 1, padding: '6px 8px' }}
+          >
+            <ChevronLeft size={14} />
+          </button>
+          {startPage > 1 && (
+            <>
+              <button onClick={() => setCurrentPage(1)} className="btn btn-ghost btn-sm" style={{ padding: '6px 10px', fontSize: '13px' }}>1</button>
+              {startPage > 2 && <span style={{ color: 'var(--text3)', fontSize: '13px', padding: '0 2px' }}>…</span>}
+            </>
+          )}
+          {pages.map(p => (
+            <button
+              key={p}
+              onClick={() => setCurrentPage(p)}
+              className="btn btn-ghost btn-sm"
+              style={{
+                padding: '6px 10px', fontSize: '13px',
+                background: p === currentPage ? 'var(--accent)' : 'transparent',
+                color: p === currentPage ? 'white' : 'var(--text2)',
+                fontWeight: p === currentPage ? 600 : 400,
+              }}
+            >{p}</button>
+          ))}
+          {endPage < totalPages && (
+            <>
+              {endPage < totalPages - 1 && <span style={{ color: 'var(--text3)', fontSize: '13px', padding: '0 2px' }}>…</span>}
+              <button onClick={() => setCurrentPage(totalPages)} className="btn btn-ghost btn-sm" style={{ padding: '6px 10px', fontSize: '13px' }}>{totalPages}</button>
+            </>
+          )}
+          <button
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+            className="btn btn-ghost btn-sm"
+            style={{ opacity: currentPage === totalPages ? 0.4 : 1, padding: '6px 8px' }}
+          >
+            <ChevronRight size={14} />
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -336,7 +429,7 @@ export default function UserManagementTab() {
               </tr>
             </thead>
             <tbody>
-              {filteredWorkspaces.map((workspace) => (
+              {paginatedWorkspaces.map((workspace) => (
                 <tr
                   key={workspace.id}
                   style={{
@@ -469,6 +562,8 @@ export default function UserManagementTab() {
             </div>
           </div>
         )}
+
+        {renderPagination()}
       </div>
 
       {/* Delete Confirmation Modal */}

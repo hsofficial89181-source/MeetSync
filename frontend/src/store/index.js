@@ -29,6 +29,15 @@ export const useStore = create((set, get) => ({
   removeMeeting: (id) =>
     set((s) => ({ meetings: s.meetings.filter((m) => m.id !== id) })),
 
+  renameMeeting: async (id, title) => {
+    const { data } = await api.patch(`/meetings/${id}`, { title });
+    set((s) => ({
+      meetings: s.meetings.map((m) => (m.id === id ? { ...m, ...data } : m)),
+      tasks: s.tasks.map((t) => (t.meeting_id === id ? { ...t, meeting_title: data.title } : t)),
+    }));
+    return data;
+  },
+
   // ── Tasks ─────────────────────────────────────────────────────────────────
   tasks: [],
   tasksLoading: false,

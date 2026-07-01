@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { 
-  LayoutDashboard, Users, BarChart2, Plug, Settings, 
+  LayoutDashboard, Users, BarChart2, CreditCard, Settings, 
   Zap, Sun, Moon, LogOut, ChevronDown 
 } from 'lucide-react';
 import { useAdminAuthStore } from '../../store/adminAuth';
@@ -10,8 +10,8 @@ import { useThemeStore } from '../../store/theme';
 const menuItems = [
   { path: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { path: '/admin/users', label: 'User Management', icon: Users },
+  { path: '/admin/subscriptions', label: 'Manage Subscriptions', icon: CreditCard },
   { path: '/admin/analytics', label: 'Analytics', icon: BarChart2 },
-  { path: '/admin/integrations', label: 'Integrations', icon: Plug },
   { path: '/admin/settings', label: 'Settings', icon: Settings },
 ];
 

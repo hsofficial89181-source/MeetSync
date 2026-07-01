@@ -178,6 +178,111 @@ CREATE TABLE IF NOT EXISTS password_reset_otps (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_otp_user ON password_reset_otps(user_id);
+
+-- ── Subscription & Billing ──────────────────────────────────────────────
+
+-- Static reference table for subscription plans
+CREATE TABLE IF NOT EXISTS subscription_plans (
+  id              SERIAL PRIMARY KEY,
+  code            VARCHAR(50) UNIQUE NOT NULL,
+  name            VARCHAR(100) NOT NULL,
+  price_cents     INTEGER NOT NULL,
+  interval        VARCHAR(20) DEFAULT 'month',
+  hours_limit     INTEGER NOT NULL,
+  stripe_price_id TEXT,
+  is_active       BOOLEAN DEFAULT TRUE,
+  sort_order      INTEGER DEFAULT 0,
+  created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- One subscription per workspace
+CREATE TABLE IF NOT EXISTS subscriptions (
+  id                     UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id           UUID REFERENCES workspaces(id) ON DELETE CASCADE,
+  plan_id                INTEGER REFERENCES subscription_plans(id),
+  status                 VARCHAR(50) DEFAULT 'inactive',
+  stripe_subscription_id TEXT UNIQUE,
+  stripe_customer_id     TEXT,
+  current_period_start   TIMESTAMPTZ,
+  current_period_end     TIMESTAMPTZ,
+  cancel_at_period_end   BOOLEAN DEFAULT FALSE,
+  canceled_at            TIMESTAMPTZ,
+  created_at             TIMESTAMPTZ DEFAULT NOW(),
+  updated_at             TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(workspace_id)
+);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_workspace ON subscriptions(workspace_id);
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS pending_plan_id INTEGER REFERENCES subscription_plans(id);
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS carry_over_seconds INTEGER DEFAULT 0;
+
+-- Invoices synced from Stripe
+CREATE TABLE IF NOT EXISTS invoices (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id      UUID REFERENCES workspaces(id) ON DELETE CASCADE,
+  subscription_id   UUID REFERENCES subscriptions(id) ON DELETE CASCADE,
+  stripe_invoice_id TEXT UNIQUE,
+  invoice_number    VARCHAR(50) NOT NULL,
+  amount_cents      INTEGER NOT NULL,
+  currency          VARCHAR(10) DEFAULT 'usd',
+  tax_cents         INTEGER DEFAULT 0,
+  total_cents       INTEGER NOT NULL,
+  status            VARCHAR(50) DEFAULT 'open',
+  period_start      TIMESTAMPTZ,
+  period_end        TIMESTAMPTZ,
+  paid_at           TIMESTAMPTZ,
+  pdf_url           TEXT,
+  created_at        TIMESTAMPTZ DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS plan_id INTEGER REFERENCES subscription_plans(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_invoices_workspace ON invoices(workspace_id);
+CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices(status);
+
+-- Per-meeting usage records for quota tracking
+CREATE TABLE IF NOT EXISTS usage_records (
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id        UUID REFERENCES workspaces(id) ON DELETE CASCADE,
+  meeting_id          UUID REFERENCES meetings(id) ON DELETE CASCADE,
+  duration_seconds    INTEGER NOT NULL,
+  billing_period_start TIMESTAMPTZ,
+  billing_period_end   TIMESTAMPTZ,
+  created_at          TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_usage_workspace ON usage_records(workspace_id);
+CREATE INDEX IF NOT EXISTS idx_usage_period ON usage_records(workspace_id, billing_period_start);
+
+-- Audit log for all subscription changes
+CREATE TABLE IF NOT EXISTS subscription_history (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id UUID REFERENCES workspaces(id) ON DELETE CASCADE,
+  action       VARCHAR(100) NOT NULL,
+  from_plan    VARCHAR(50),
+  to_plan      VARCHAR(50),
+  details      JSONB,
+  performed_by UUID REFERENCES users(id),
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_sub_history_workspace ON subscription_history(workspace_id);
+
+-- Seed subscription plans (idempotent)
+INSERT INTO subscription_plans (code, name, price_cents, interval, hours_limit, stripe_price_id, sort_order)
+VALUES
+  ('starter',             'Starter',                   9900,    'month', 10,  NULL, 1),
+  ('professional',        'Professional',              29900,   'month', 30,  NULL, 2),
+  ('business',            'Business',                  79900,   'month', 80,  NULL, 3),
+  ('enterprise',          'Enterprise',               349900,   'month', 350, NULL, 4),
+  ('starter_yearly',      'Starter (Yearly)',          99900,   'year',  120,  NULL, 5),
+  ('professional_yearly', 'Professional (Yearly)',    349900,   'year',  360,  NULL, 6),
+  ('business_yearly',     'Business (Yearly)',        949900,   'year',  960,  NULL, 7),
+  ('enterprise_yearly',   'Enterprise (Yearly)',     3999900,   'year',  4200, NULL, 8)
+ON CONFLICT (code) DO NOTHING;
+
+-- Patch existing yearly plan records with correct pricing (UPDATE for rows already in DB)
+UPDATE subscription_plans SET price_cents = 99900,   hours_limit = 120  WHERE code = 'starter_yearly';
+UPDATE subscription_plans SET price_cents = 349900,  hours_limit = 360  WHERE code = 'professional_yearly';
+UPDATE subscription_plans SET price_cents = 949900,  hours_limit = 960  WHERE code = 'business_yearly';
+UPDATE subscription_plans SET price_cents = 3999900, hours_limit = 4200 WHERE code = 'enterprise_yearly';
 `;
 
 async function migrate() {

@@ -6,8 +6,9 @@
  * Skips scheduled jobs and WebSocket server.
  */
 
-require('dotenv').config({ path: '.env.test', override: false });
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '..', '.env.test'), override: false });
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 const express = require('express');
 const cors    = require('cors');
@@ -27,6 +28,8 @@ const notificationsRouter = require('./routes/notifications');
 const settingsRouter      = require('./routes/settings');
 const exportRouter        = require('./routes/export');
 const healthRouter        = require('./routes/health');
+const subscriptionsRouter = require('./routes/subscriptions');
+const invoicesRouter      = require('./routes/invoices');
 
 function createApp() {
   const app = express();
@@ -53,6 +56,8 @@ function createApp() {
   app.use('/api/settings',      settingsRouter);
   app.use('/api/export',        exportRouter);
   app.use('/api/health',        healthRouter);
+  app.use('/api/subscriptions', subscriptionsRouter);
+  app.use('/api/invoices',      invoicesRouter);
 
   app.use('/api/*', (req, res) => res.status(404).json({ error: 'Route not found' }));
 

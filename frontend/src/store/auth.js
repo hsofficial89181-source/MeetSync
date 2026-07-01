@@ -9,6 +9,7 @@
 
 import { create } from 'zustand';
 import api from '../services/api';
+import { useSubscriptionStore } from './subscription';
 
 export const useAuthStore = create((set) => ({
   user:            null,
@@ -31,6 +32,7 @@ export const useAuthStore = create((set) => ({
         isAuthenticated: true,
         isLoading:       false,
       });
+      useSubscriptionStore.getState().fetchAll();
     } catch {
       // Token invalid or expired — api.js interceptor already tried refresh
       // If we reach here, refresh also failed → clear and go to login
@@ -49,6 +51,7 @@ export const useAuthStore = create((set) => ({
       workspace:       data.workspace,
       isAuthenticated: true,
     });
+    useSubscriptionStore.getState().fetchAll();
     return data;
   },
 

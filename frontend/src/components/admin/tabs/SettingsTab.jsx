@@ -174,6 +174,7 @@ export default function SettingsTab() {
                 type="text"
                 value={profile.name}
                 onChange={(e) => setProfile({ ...profile, name: e.target.value })}
+                placeholder="Enter your name"
                 required
                 style={inputStyle}
               />
@@ -185,6 +186,7 @@ export default function SettingsTab() {
                 type="email"
                 value={profile.email}
                 onChange={(e) => setProfile({ ...profile, email: e.target.value })}
+                placeholder="Enter your email"
                 required
                 style={inputStyle}
               />
@@ -240,6 +242,7 @@ export default function SettingsTab() {
                   type={showCurrent ? 'text' : 'password'}
                   value={passwordData.currentPassword}
                   onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                  placeholder="Enter current password"
                   required
                   style={{ ...inputStyle, padding: '12px 44px 12px 16px' }}
                 />
@@ -270,6 +273,7 @@ export default function SettingsTab() {
                   type={showNew ? 'text' : 'password'}
                   value={passwordData.newPassword}
                   onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                  placeholder="Enter new password"
                   required
                   style={{ ...inputStyle, padding: '12px 44px 12px 16px' }}
                 />
@@ -300,6 +304,7 @@ export default function SettingsTab() {
                   type={showConfirm ? 'text' : 'password'}
                   value={passwordData.confirmPassword}
                   onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                  placeholder="Confirm new password"
                   required
                   style={{ ...inputStyle, padding: '12px 44px 12px 16px' }}
                 />

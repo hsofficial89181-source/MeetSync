@@ -141,3 +141,25 @@
   }
 }
 
+/* Checkout page: stack columns on tablet/mobile */
+@media (max-width: 768px) {
+  .checkout-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ── Print: only show the invoice ─────────────────────────── */
+@media print {
+  body * { visibility: hidden; }
+  .print-area, .print-area * { visibility: visible; }
+  .print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    border: none;
+    border-radius: 0;
+  }
+  .no-print { display: none !important; }
+}
+

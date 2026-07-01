@@ -16,6 +16,8 @@ const RECOMMENDED = [
   { key: 'OPENAI_API_KEY',     desc: 'OpenAI Whisper fallback transcription' },
   { key: 'SMTP_HOST',          desc: 'SMTP server for email notifications' },
   { key: 'AWS_S3_BUCKET',      desc: 'S3 bucket for audio file storage' },
+  { key: 'STRIPE_SECRET_KEY',     desc: 'Stripe API key for subscription billing' },
+  { key: 'STRIPE_PUBLISHABLE_KEY',desc: 'Stripe publishable key for Stripe Elements' },
 ];
 
 function validateEnv() {

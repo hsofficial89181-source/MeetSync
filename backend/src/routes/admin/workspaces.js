@@ -1,5 +1,6 @@
 const express = require('express');
 const { pool } = require('../../models/migrate');
+const { getWorkspaceUsage } = require('../../services/usage');
 
 const router = express.Router();
 
@@ -186,6 +187,38 @@ router.get('/:id/members', async (req, res, next) => {
         total: parseInt(countRows[0].total),
         pages: Math.ceil(countRows[0].total / limit)
       }
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * GET /api/admin/workspaces/:id/usage
+ * Get workspace subscription usage and quota information
+ */
+router.get('/:id/usage', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const usage = await getWorkspaceUsage(id);
+
+    if (!usage.has_subscription) {
+      return res.json({ has_subscription: false });
+    }
+
+    const { rows: [{ meeting_count }] } = await pool.query(
+      `SELECT COUNT(*)::int AS meeting_count
+       FROM usage_records
+       WHERE workspace_id = $1
+         AND billing_period_start >= $2
+         AND billing_period_start < $3`,
+      [id, usage.period_start, usage.period_end || new Date()]
+    );
+
+    res.json({
+      ...usage,
+      meeting_count,
     });
   } catch (err) {
     next(err);

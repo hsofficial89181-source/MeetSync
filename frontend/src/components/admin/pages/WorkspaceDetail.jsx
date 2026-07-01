@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, Shield, Activity, 
   RefreshCw, AlertTriangle, CheckCircle,
-  Calendar, Users
+  Calendar, Users, Clock, Gauge
 } from 'lucide-react';
 import adminApi from '../../../services/adminApi';
 
@@ -12,6 +12,7 @@ export default function WorkspaceDetail() {
   const navigate = useNavigate();
   const [workspace, setWorkspace] = useState(null);
   const [members, setMembers] = useState([]);
+  const [usage, setUsage] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [notification, setNotification] = useState(null);
@@ -28,6 +29,12 @@ export default function WorkspaceDetail() {
       const { data } = await adminApi.get(`/workspaces/${id}`);
       setWorkspace(data.workspace);
       setMembers(data.members);
+      try {
+        const { data: usageData } = await adminApi.get(`/workspaces/${id}/usage`);
+        setUsage(usageData);
+      } catch (e) {
+        setUsage({ has_subscription: false });
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -277,6 +284,189 @@ export default function WorkspaceDetail() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Usage Section */}
+      <h3 style={{
+        fontSize: '16px',
+        fontWeight: '600',
+        color: 'var(--text)',
+        marginBottom: '16px',
+      }}>
+        Usage & Subscription
+      </h3>
+      <div style={{
+        background: 'var(--surface)',
+        border: '1px solid var(--border)',
+        borderRadius: '12px',
+        padding: '24px',
+        marginBottom: '24px',
+      }}>
+        {usage && usage.has_subscription ? (
+          <>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: '20px',
+              flexWrap: 'wrap',
+              gap: '12px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '10px',
+                  background: 'linear-gradient(135deg, #5B6AF0 0%, #7B8BFF 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}>
+                  <Gauge size={18} color="white" />
+                </div>
+                <div>
+                  <div style={{ fontSize: '15px', fontWeight: '600', color: 'var(--text)' }}>
+                    {usage.plan?.name || 'Unknown Plan'}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--text3)' }}>
+                    {usage.plan?.hours_limit ? `${usage.plan.hours_limit} hours/${usage.plan?.interval === 'year' ? 'year' : 'month'}` : ''}
+                  </div>
+                </div>
+              </div>
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                padding: '4px 12px',
+                borderRadius: '12px',
+                fontSize: '12px',
+                fontWeight: '600',
+                background: usage.status === 'active' ? 'rgba(34,197,94,0.1)' : usage.status === 'trial' ? 'rgba(245,158,11,0.1)' : 'rgba(239,68,68,0.1)',
+                color: usage.status === 'active' ? '#22C55E' : usage.status === 'trial' ? '#F59E0B' : '#EF4444',
+                textTransform: 'capitalize',
+              }}>
+                {usage.status}
+              </span>
+            </div>
+
+            {/* Quota Progress Bar */}
+            <div style={{ marginBottom: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <span style={{ fontSize: '12px', color: 'var(--text2)', fontWeight: 500 }}>Quota Usage</span>
+                <span style={{ fontSize: '12px', color: 'var(--text)', fontWeight: 600 }}>{usage.usage_pct}%</span>
+              </div>
+              <div style={{
+                height: '8px',
+                background: 'var(--surface2)',
+                borderRadius: '4px',
+                overflow: 'hidden',
+              }}>
+                <div style={{
+                  height: '100%',
+                  width: `${Math.min(usage.usage_pct, 100)}%`,
+                  background: usage.usage_pct > 90 ? '#EF4444' : usage.usage_pct > 70 ? '#F59E0B' : '#22C55E',
+                  borderRadius: '4px',
+                  transition: 'width 0.3s ease',
+                }} />
+              </div>
+            </div>
+
+            {/* Usage Stats Grid */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+              gap: '12px',
+            }}>
+              <div style={{
+                background: 'var(--surface2)',
+                borderRadius: '10px',
+                padding: '14px',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                  <Clock size={13} color="var(--text3)" />
+                  <span style={{ fontSize: '11px', color: 'var(--text3)', fontWeight: 500, textTransform: 'uppercase' }}>Used</span>
+                </div>
+                <div style={{ fontSize: '16px', fontWeight: '700', color: 'var(--text)' }}>
+                  {Math.floor(usage.used_seconds / 3600)}h {Math.floor((usage.used_seconds % 3600) / 60)}m
+                </div>
+              </div>
+              <div style={{
+                background: 'var(--surface2)',
+                borderRadius: '10px',
+                padding: '14px',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                  <Clock size={13} color="var(--text3)" />
+                  <span style={{ fontSize: '11px', color: 'var(--text3)', fontWeight: 500, textTransform: 'uppercase' }}>Remaining</span>
+                </div>
+                <div style={{ fontSize: '16px', fontWeight: '700', color: 'var(--text)' }}>
+                  {Math.floor(usage.remaining_seconds / 3600)}h {Math.floor((usage.remaining_seconds % 3600) / 60)}m
+                </div>
+              </div>
+              <div style={{
+                background: 'var(--surface2)',
+                borderRadius: '10px',
+                padding: '14px',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                  <Activity size={13} color="var(--text3)" />
+                  <span style={{ fontSize: '11px', color: 'var(--text3)', fontWeight: 500, textTransform: 'uppercase' }}>Meetings</span>
+                </div>
+                <div style={{ fontSize: '16px', fontWeight: '700', color: 'var(--text)' }}>
+                  {usage.meeting_count}
+                </div>
+              </div>
+              <div style={{
+                background: 'var(--surface2)',
+                borderRadius: '10px',
+                padding: '14px',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                  <Calendar size={13} color="var(--text3)" />
+                  <span style={{ fontSize: '11px', color: 'var(--text3)', fontWeight: 500, textTransform: 'uppercase' }}>Renews</span>
+                </div>
+                <div style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text)' }}>
+                  {usage.period_end ? formatDate(usage.period_end) : '—'}
+                </div>
+              </div>
+            </div>
+
+            {usage.cancel_at_period_end && (
+              <div style={{
+                marginTop: '16px',
+                padding: '10px 14px',
+                background: 'rgba(245,158,11,0.08)',
+                border: '1px solid rgba(245,158,11,0.2)',
+                borderRadius: '8px',
+                fontSize: '12px',
+                color: '#F59E0B',
+              }}>
+                Subscription is set to cancel at the end of the current billing period.
+              </div>
+            )}
+          </>
+        ) : (
+          <div style={{
+            textAlign: 'center',
+            padding: '32px 20px',
+          }}>
+            <div style={{ fontSize: '36px', marginBottom: '12px' }}>📋</div>
+            <div style={{
+              fontSize: '15px',
+              fontWeight: '600',
+              color: 'var(--text)',
+              marginBottom: '6px',
+            }}>
+              No Active Subscription
+            </div>
+            <div style={{
+              fontSize: '13px',
+              color: 'var(--text2)',
+            }}>
+              This workspace does not have an active subscription plan.
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Members Table */}

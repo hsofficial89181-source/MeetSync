@@ -1,4 +1,5 @@
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 const { validateEnv }    = require('./config/validateEnv');
 validateEnv();
@@ -34,6 +35,9 @@ const webhookZoomRouter   = require('./routes/webhookZoom');
 const webhookGoogleRouter = require('./routes/webhookGoogle');
 const adminRouter         = require('./routes/admin');
 const oauthRouter         = require('./routes/oauth');
+const subscriptionsRouter = require('./routes/subscriptions');
+const invoicesRouter      = require('./routes/invoices');
+const webhookStripeRouter = require('./routes/webhookStripe');
 
 const app    = express();
 const server = http.createServer(app);
@@ -54,6 +58,7 @@ app.use(cors({
 // Webhook routes before JSON parser (need raw body for HMAC)
 app.use('/api/webhooks', webhookZoomRouter);
 app.use('/api/webhooks', webhookGoogleRouter);
+app.use('/api/webhooks', webhookStripeRouter);
 
 app.use(express.json({ limit: '10mb' }));
 app.use(requestSizeGuard);
@@ -77,6 +82,8 @@ app.use('/api/meetings',      shareRouter);         // POST /api/meetings/:id/sh
 app.use('/api/share',         shareRouter);         // GET  /api/share/public/:token
 app.use('/api/admin',         adminRouter);         // Admin routes (Super Admin only)
 app.use('/api/oauth',         oauthRouter);         // OAuth 2.0 integration flows
+app.use('/api/subscriptions', subscriptionsRouter); // Subscription management
+app.use('/api/invoices',      invoicesRouter);      // Invoice list + PDF download
 
 // 404
 app.use('/api/*', (req, res) => {
@@ -98,7 +105,16 @@ const PORT = parseInt(process.env.PORT || '3001', 10);
 server.listen(PORT, () => {
   log.info('MeetSync AI v2.0 started', {
     port: PORT, env: process.env.NODE_ENV || 'development', pid: process.pid,
+    stripe: process.env.STRIPE_SECRET_KEY ? 'configured' : 'NOT configured',
   });
+
+  if (process.env.STRIPE_SECRET_KEY) {
+    const priceVars = ['STRIPE_PRICE_STARTER', 'STRIPE_PRICE_PROFESSIONAL', 'STRIPE_PRICE_BUSINESS', 'STRIPE_PRICE_ENTERPRISE'];
+    const missingPrices = priceVars.filter(v => !process.env[v]);
+    if (missingPrices.length > 0) {
+      log.warn('Stripe Price IDs not configured', { missing: missingPrices });
+    }
+  }
   startScheduledJobs();
   const pipelineWorker = startWorker();
   setupGracefulShutdown(server, { pool, worker: pipelineWorker });

@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, CheckSquare, Loader2, Share2, Download, Copy, Check, ExternalLink, StopCircle, Trash2 } from 'lucide-react';
+import { ArrowLeft, CheckSquare, Loader2, Share2, Download, Copy, Check, ExternalLink, StopCircle, Trash2, Pencil, XCircle } from 'lucide-react';
 import PageHeader from '../ui/PageHeader';
+import RenameModal from '../ui/RenameModal';
 import { useStore } from '../../store';
 import { useMeetingSocket } from '../../hooks/useMeetingSocket';
 import api from '../../services/api';
@@ -11,6 +12,9 @@ const PRIORITY_COLOR = { urgent: '#EF4444', high: '#F59E0B', medium: '#7B8BFF', 
 const SPEAKER_BG   = ['rgba(91,106,240,0.2)', 'rgba(34,197,94,0.15)', 'rgba(245,158,11,0.15)', 'rgba(236,72,153,0.15)'];
 const SPEAKER_TEXT = ['#7B8BFF', '#22C55E', '#F59E0B', '#EC4899'];
 const STEPS        = ['transcribing', 'extracting', 'assigning', 'integrations', 'done'];
+const STEP_LABELS  = { transcribing: 'Transcribing', transcribed: 'Transcribing', extracting: 'Extracting', assigning: 'Assigning', saved: 'Assigning', integrations: 'Integrations', done: 'Done' };
+const STEP_ORDER   = ['transcribing', 'transcribed', 'extracting', 'assigning', 'saved', 'integrations', 'done'];
+const STEP_PCT     = { transcribing: 10, transcribed: 35, extracting: 50, assigning: 65, saved: 75, integrations: 88, done: 100 };
 
 function fmt(s) {
   if (!s) return '00:00';
@@ -20,7 +24,7 @@ function fmt(s) {
 export default function MeetingDetail() {
   const { id }       = useParams();
   const navigate     = useNavigate();
-  const { processingStates, updateMeeting, removeMeeting } = useStore();
+  const { processingStates, updateMeeting, removeMeeting, renameMeeting } = useStore();
 
   const [meeting,       setMeeting]       = useState(null);
   const [tasks,         setTasks]         = useState([]);
@@ -32,6 +36,8 @@ export default function MeetingDetail() {
   const [stopping,      setStopping]      = useState(false);
   const [deleting,      setDeleting]      = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showRename,    setShowRename]    = useState(false);
+  const [renameSaving,  setRenameSaving]  = useState(false);
 
   // Only open WS when meeting is not already terminal
   useMeetingSocket(id, meeting?.status);
@@ -39,7 +45,9 @@ export default function MeetingDetail() {
   const procState  = processingStates[id];
   const latestStep = procState?.steps?.[procState.steps.length - 1]?.step || meeting?.status;
   const isProcessing = meeting && !['done', 'error', 'cancelled'].includes(meeting.status);
-  const stepIdx = STEPS.indexOf(latestStep);
+  const isError = meeting?.status === 'error' || procState?.status === 'error';
+  const stepIdx = STEP_ORDER.indexOf(latestStep);
+  const currentPct = STEP_PCT[latestStep] || 0;
 
   async function load() {
     setLoading(true);
@@ -107,6 +115,19 @@ export default function MeetingDetail() {
     const blob  = await res.blob();
     const fname = res.headers.get('content-disposition')?.match(/filename="(.+)"/)?.[1] || 'export';
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = fname; a.click();
+  }
+
+  async function handleRenameSave(newTitle) {
+    setRenameSaving(true);
+    try {
+      const updated = await renameMeeting(id, newTitle);
+      setMeeting(prev => ({ ...prev, ...updated }));
+      setShowRename(false);
+    } catch (err) {
+      alert('Rename failed: ' + err.message);
+    } finally {
+      setRenameSaving(false);
+    }
   }
 
   if (loading) return (
@@ -181,6 +202,9 @@ export default function MeetingDetail() {
                 </button>
               )
             )}
+            <button className="btn btn-ghost btn-sm" onClick={() => setShowRename(true)} disabled={isProcessing}>
+              <Pencil size={13} /> Rename
+            </button>
             <button className="btn btn-ghost btn-sm" onClick={() => navigate('/meetings')}>
               <ArrowLeft size={13} /> Back
             </button>
@@ -204,7 +228,7 @@ export default function MeetingDetail() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
               <Loader2 size={16} style={{ animation: 'spin 1s linear infinite', color: 'var(--accent)' }} />
               <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>AI Processing…</span>
-              <span className="badge badge-amber" style={{ marginLeft: 'auto' }}>{latestStep || 'pending'}</span>
+              <span className="badge badge-amber" style={{ marginLeft: 'auto' }}>{STEP_LABELS[latestStep] || latestStep || 'pending'}</span>
               <button
                 className="btn btn-ghost btn-sm"
                 style={{ color: 'var(--amber)', marginLeft: 4 }}
@@ -218,19 +242,106 @@ export default function MeetingDetail() {
               </button>
             </div>
             <div style={{ display: 'flex', gap: 4 }}>
-              {STEPS.map((step, i) => (
-                <div key={step} style={{ flex: 1 }}>
-                  <div style={{
-                    height: 4, borderRadius: 4, marginBottom: 6,
-                    background: i < stepIdx ? 'var(--accent)' : 'var(--surface3)',
-                    transition: 'background 0.4s',
-                  }} />
-                  <div style={{
-                    fontSize: 10, textAlign: 'center',
-                    color: i < stepIdx ? 'var(--green)' : i === stepIdx - 1 ? 'var(--accent2)' : 'var(--text3)',
-                  }}>{step}</div>
-                </div>
-              ))}
+              {STEPS.map((step, i) => {
+                const stepOrderIdx = STEP_ORDER.indexOf(step);
+                const stageRanges = [
+                  { start: 0,  end: 35 },
+                  { start: 35, end: 50 },
+                  { start: 50, end: 75 },
+                  { start: 75, end: 88 },
+                  { start: 88, end: 100 },
+                ];
+                const range = stageRanges[i] || { start: 0, end: 100 };
+                const isActive = stepIdx >= 0 && stepOrderIdx >= 0 && stepIdx >= stepOrderIdx;
+                const isCurrent = stepIdx === stepOrderIdx;
+                let fillPct = 0;
+                if (currentPct >= range.end) {
+                  fillPct = 100;
+                } else if (currentPct >= range.start) {
+                  fillPct = Math.round(((currentPct - range.start) / (range.end - range.start)) * 100);
+                }
+                return (
+                  <div key={step} style={{ flex: 1 }}>
+                    <div style={{
+                      height: 4, borderRadius: 4, marginBottom: 6,
+                      background: 'var(--surface3)',
+                      overflow: 'hidden',
+                      transition: 'background 0.4s',
+                    }}>
+                      <div style={{
+                        height: '100%',
+                        width: `${fillPct}%`,
+                        background: isActive && !isCurrent ? 'var(--green)' : 'var(--accent)',
+                        borderRadius: 4,
+                        transition: 'width 0.4s ease',
+                      }} />
+                    </div>
+                    <div style={{
+                      fontSize: 10, textAlign: 'center',
+                      color: isActive && !isCurrent ? 'var(--green)' : isCurrent ? 'var(--accent2)' : 'var(--text3)',
+                    }}>
+                      {STEP_LABELS[step] || step}
+                    </div>
+                    {isCurrent && fillPct > 0 && fillPct < 100 && (
+                      <div style={{
+                        fontSize: 9, textAlign: 'center', marginTop: 2,
+                        color: 'var(--accent2)', fontWeight: 600,
+                      }}>
+                        {fillPct}%
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Error state */}
+        {isError && !isProcessing && (
+          <div style={{
+            background: 'var(--surface)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 12, padding: 24, marginBottom: 20,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center',
+          }}>
+            <div style={{
+              width: 48, height: 48, borderRadius: '50%', background: 'rgba(239,68,68,0.1)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16,
+            }}>
+              <XCircle size={24} style={{ color: 'var(--red)' }} />
+            </div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>
+              Processing Failed
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--text2)', maxWidth: 400, lineHeight: 1.6, marginBottom: 20 }}>
+              {meeting?.error_message || procState?.message || 'An error occurred during AI processing. The uploaded file has been automatically cleaned up.'}
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-ghost btn-sm" onClick={() => navigate('/meetings')}>
+                <ArrowLeft size={13} /> Back to Meetings
+              </button>
+              {(meeting?.status === 'error' || meeting?.status === 'cancelled') && (
+                confirmDelete ? (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <button
+                      className="btn btn-sm"
+                      style={{ background: 'rgba(239,68,68,0.12)', color: 'var(--red)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 6 }}
+                      disabled={deleting}
+                      onClick={deleteMeeting}
+                    >
+                      {deleting ? <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> : 'Yes, delete'}
+                    </button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => setConfirmDelete(false)}>Cancel</button>
+                  </span>
+                ) : (
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    style={{ color: 'var(--red)' }}
+                    onClick={() => setConfirmDelete(true)}
+                  >
+                    <Trash2 size={13} /> Delete
+                  </button>
+                )
+              )}
             </div>
           </div>
         )}
@@ -315,6 +426,14 @@ export default function MeetingDetail() {
           </div>
         </div>
       </div>
+
+      <RenameModal
+        open={showRename}
+        currentTitle={meeting.title}
+        saving={renameSaving}
+        onSave={handleRenameSave}
+        onClose={() => setShowRename(false)}
+      />
     </div>
   );
 }

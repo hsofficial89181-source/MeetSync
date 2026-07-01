@@ -3,7 +3,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Video, CheckSquare, Plug, Users,
   Zap, BarChart2, Settings, Search, Bell, LogOut,
-  ChevronDown, Sun, Moon, Menu, X,
+  ChevronDown, Sun, Moon, Menu, X, CreditCard,
 } from 'lucide-react';
 import { useAuthStore }  from '../../store/auth';
 import { useThemeStore } from '../../store/theme';
@@ -16,9 +16,10 @@ const NAV_MAIN = [
   { to: '/analytics',  icon: BarChart2,       label: 'Analytics' },
 ];
 const NAV_MANAGE = [
-  { to: '/integrations', icon: Plug,     label: 'Integrations' },
-  { to: '/team',         icon: Users,    label: 'Team' },
-  { to: '/settings',     icon: Settings, label: 'Settings' },
+  { to: '/integrations', icon: Plug,        label: 'Integrations' },
+  { to: '/team',         icon: Users,       label: 'Team' },
+  { to: '/billing',      icon: CreditCard,  label: 'Billing' },
+  { to: '/settings',     icon: Settings,    label: 'Settings' },
 ];
 
 export default function Layout() {
@@ -169,7 +170,7 @@ export default function Layout() {
       )}
 
       {/* Sidebar */}
-      <aside style={{ background: 'var(--surface)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column' }}>
+      <aside style={{ background: 'var(--surface)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', position: 'sticky', top: 0, height: '100vh', overflowY: 'auto' }}>
         {sidebarContent}
       </aside>
 

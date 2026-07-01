@@ -47,7 +47,7 @@ export default function AdminLayout() {
       )}
 
       {/* Sidebar */}
-      <aside style={{ background: 'var(--surface2)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column' }}>
+      <aside style={{ background: 'var(--surface2)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', position: 'sticky', top: 0, height: '100vh', overflowY: 'auto' }}>
         <AdminSidebar />
       </aside>
 

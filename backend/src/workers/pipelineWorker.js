@@ -12,7 +12,11 @@
 
 const { Worker } = require('bullmq');
 const IORedis = require('ioredis');
+const fs = require('fs');
 const { processMeeting } = require('../services/aiPipeline');
+const { pool } = require('../models/migrate');
+const { broadcastToMeeting } = require('../services/websocket');
+const { log } = require('../utils/logger');
 
 /**
  * Create and start a BullMQ worker that consumes the 'meeting-pipeline' queue.
@@ -49,8 +53,7 @@ function startWorker() {
     {
       connection,
       concurrency,
-      attempts: 3,
-      backoff: { type: 'exponential', delay: 5000 },
+      attempts: 1,
     }
   );
 
@@ -58,8 +61,23 @@ function startWorker() {
     console.log(`[Worker] Job ${job.id} completed — meeting ${result.meetingId}`);
   });
 
-  worker.on('failed', (job, err) => {
+  worker.on('failed', async (job, err) => {
     console.error(`[Worker] Job ${job?.id} failed:`, err.message);
+    if (job?.data?.meetingId) {
+      const { meetingId, localPath } = job.data;
+      try {
+        await pool.query(
+          "UPDATE meetings SET status='error', error_message=$1, updated_at=NOW() WHERE id=$2",
+          [err.message, meetingId]
+        );
+        broadcastToMeeting(meetingId, { event: 'error', data: { message: err.message }, timestamp: Date.now() });
+      } catch (updateErr) {
+        log.error('Failed to update meeting status after worker failure', { meetingId, error: updateErr.message });
+      }
+      if (localPath) {
+        fs.unlink(localPath, () => {});
+      }
+    }
   });
 
   worker.on('error', (err) => {

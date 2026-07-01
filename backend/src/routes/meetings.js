@@ -4,6 +4,7 @@
  * POST /              upload audio → enqueue pipeline job
  * GET  /              list meetings
  * GET  /:id           get meeting + transcript
+ * PATCH /:id          update meeting (e.g. rename)
  * GET  /:id/tasks     tasks for a meeting
  * GET  /:id/decisions decisions for a meeting
  * DELETE /:id         delete meeting
@@ -19,6 +20,7 @@ const { enqueueMeeting, cancelMeeting } = require('../services/aiPipeline'); // 
 const { requireAuth }    = require('../middleware/auth');
 const { uploadLimiter }  = require('../middleware/rateLimiter');
 const { validateAudioFile } = require('../middleware/fileValidator');
+const { quotaCheck } = require('../middleware/quotaCheck');
 const { log } = require('../utils/logger');
 
 const router = express.Router();
@@ -28,7 +30,7 @@ const wid = (req) => req.user.workspace_id;
 
 const upload = multer({
   dest: '/tmp/meetsync-uploads/',
-  limits: { fileSize: 500 * 1024 * 1024 },
+  limits: { fileSize: 300 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const allowed = ['.mp4','.mp3','.m4a','.wav','.ogg','.webm'];
     const ext = path.extname(file.originalname).toLowerCase();
@@ -45,6 +47,7 @@ router.post(
   uploadLimiter,
   upload.single('audio'),
   validateAudioFile,
+  quotaCheck,
   async (req, res, next) => {
     if (!req.file) return res.status(400).json({ error: 'No audio file provided' });
 
@@ -125,6 +128,31 @@ router.get('/:id', async (req, res, next) => {
     );
     if (!rows[0]) return res.status(404).json({ error: 'Meeting not found' });
     res.json(rows[0]);
+  } catch (err) { next(err); }
+});
+
+/**
+ * PATCH /api/meetings/:id  — update meeting (e.g. rename title)
+ */
+router.patch('/:id', async (req, res, next) => {
+  try {
+    const { title } = req.body;
+    if (!title || !title.trim()) {
+      return res.status(400).json({ error: 'Title is required' });
+    }
+    const trimmed = title.trim().slice(0, 255);
+
+    const { rows: [meeting] } = await pool.query(
+      'SELECT id FROM meetings WHERE id=$1 AND workspace_id=$2',
+      [req.params.id, wid(req)]
+    );
+    if (!meeting) return res.status(404).json({ error: 'Meeting not found' });
+
+    const { rows: [updated] } = await pool.query(
+      'UPDATE meetings SET title=$1, updated_at=NOW() WHERE id=$2 RETURNING *',
+      [trimmed, req.params.id]
+    );
+    res.json(updated);
   } catch (err) { next(err); }
 });
 

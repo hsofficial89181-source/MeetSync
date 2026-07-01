@@ -80,6 +80,11 @@ function securityHeaders(req, res, next) {
  * Request body size limiter — extra guard on top of express.json limit
  */
 function requestSizeGuard(req, res, next) {
+  // Skip for multipart uploads — multer enforces file size limits separately
+  if (req.headers['content-type']?.startsWith('multipart/form-data')) {
+    return next();
+  }
+
   const contentLength = parseInt(req.headers['content-length'] || '0');
   const maxBodySize = 10 * 1024 * 1024; // 10 MB for JSON
 
