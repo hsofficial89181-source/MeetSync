@@ -96,6 +96,7 @@ CREATE TABLE IF NOT EXISTS team_members (
   linear_user_id   VARCHAR(100),
   role             VARCHAR(100),
   created_at       TIMESTAMPTZ DEFAULT NOW(),
+  updated_at       TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(workspace_id, email)
 );
 
@@ -115,7 +116,12 @@ CREATE TABLE IF NOT EXISTS integrations (
 -- Migrate integrations to per-user: add user_id column, update unique constraint
 ALTER TABLE integrations ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES users(id) ON DELETE CASCADE;
 ALTER TABLE integrations DROP CONSTRAINT IF EXISTS integrations_workspace_id_provider_key;
-ALTER TABLE integrations ADD CONSTRAINT integrations_workspace_user_provider_key UNIQUE(workspace_id, user_id, provider);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'integrations_workspace_user_provider_key') THEN
+    ALTER TABLE integrations ADD CONSTRAINT integrations_workspace_user_provider_key UNIQUE(workspace_id, user_id, provider);
+  END IF;
+END $$;
 CREATE INDEX IF NOT EXISTS idx_integrations_user ON integrations(user_id);
 
 CREATE TABLE IF NOT EXISTS notifications (
@@ -302,6 +308,9 @@ VALUES
   ('business_yearly',     'Business (Yearly)',        949900,   'year',  960,  NULL, 7),
   ('enterprise_yearly',   'Enterprise (Yearly)',     3999900,   'year',  4200, NULL, 8)
 ON CONFLICT (code) DO NOTHING;
+
+-- Add updated_at to team_members for existing databases
+ALTER TABLE team_members ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
 
 -- Patch existing yearly plan records with correct pricing (UPDATE for rows already in DB)
 UPDATE subscription_plans SET price_cents = 99900,   hours_limit = 120  WHERE code = 'starter_yearly';
