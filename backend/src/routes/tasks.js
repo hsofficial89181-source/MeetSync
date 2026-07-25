@@ -6,6 +6,7 @@
 const express = require('express');
 const { pool } = require('../models/migrate');
 const { requireAuth } = require('../middleware/auth');
+const { syncTaskToIntegrations, removeTaskFromIntegrations } = require('../services/taskSync');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -98,12 +99,37 @@ router.patch('/:id', async (req, res, next) => {
     updates.push(`updated_at = NOW()`);
     params.push(wid(req), req.params.id);
 
+    // Fetch old assignee_email before update (for integration sync)
+    const { rows: [oldTask] } = await pool.query(
+      'SELECT assignee_email FROM tasks WHERE id = $1 AND workspace_id = $2',
+      [req.params.id, wid(req)]
+    );
+    if (!oldTask) return res.status(404).json({ error: 'Task not found' });
+
+    const oldAssigneeEmail = oldTask.assignee_email;
+    const newAssigneeEmail = req.body.assignee_email !== undefined ? req.body.assignee_email : oldAssigneeEmail;
+
     const { rows } = await pool.query(
       `UPDATE tasks SET ${updates.join(', ')}
        WHERE workspace_id = $${i++} AND id = $${i} RETURNING *`,
       params
     );
     if (!rows[0]) return res.status(404).json({ error: 'Task not found' });
+
+    // If assignee changed, remove from old assignee's integrations and sync to new
+    if (oldAssigneeEmail !== newAssigneeEmail) {
+      if (oldAssigneeEmail) {
+        removeTaskFromIntegrations(rows[0].id, oldAssigneeEmail).catch(err =>
+          console.warn('Failed to remove task from old assignee integrations:', err.message)
+        );
+      }
+      if (newAssigneeEmail) {
+        syncTaskToIntegrations(rows[0].id).catch(err =>
+          console.warn('Failed to sync task to new assignee integrations:', err.message)
+        );
+      }
+    }
+
     res.json(rows[0]);
   } catch (err) { next(err); }
 });

@@ -13,6 +13,7 @@ const jwt = require('jsonwebtoken');
 const { pool } = require('../models/migrate');
 const { requireAuth } = require('../middleware/auth');
 const { log } = require('../utils/logger');
+const { syncPendingTasksForUser } = require('../services/taskSync');
 
 const router = express.Router();
 
@@ -242,14 +243,21 @@ router.get('/:provider/callback', async (req, res) => {
     const config = await exchangeCode(req, provider, code);
 
     await pool.query(
-      `INSERT INTO integrations (workspace_id, provider, enabled, config)
-       VALUES ($1, $2, TRUE, $3)
-       ON CONFLICT (workspace_id, provider)
-       DO UPDATE SET enabled = TRUE, config = $3, updated_at = NOW()`,
-      [payload.workspace_id, provider, JSON.stringify(config)]
+      `INSERT INTO integrations (workspace_id, user_id, provider, enabled, config)
+       VALUES ($1, $2, $3, TRUE, $4)
+       ON CONFLICT (workspace_id, user_id, provider)
+       DO UPDATE SET enabled = TRUE, config = $4, updated_at = NOW()`,
+      [payload.workspace_id, payload.user_id, provider, JSON.stringify(config)]
     );
 
-    log.info(`OAuth connected: ${provider}`, { workspaceId: payload.workspace_id });
+    log.info(`OAuth connected: ${provider}`, { workspaceId: payload.workspace_id, userId: payload.user_id });
+
+    // Flush pending task syncs for this user+provider
+    if (provider === 'slack' || provider === 'notion') {
+      syncPendingTasksForUser(payload.user_id, provider).catch(err =>
+        log.warn('Pending task sync flush failed', { provider, userId: payload.user_id, error: err.message })
+      );
+    }
 
     res.redirect(
       `${FRONTEND_URL}/oauth/callback?success=true&provider=${provider}`

@@ -55,7 +55,7 @@ export default function Meetings() {
 
   useEffect(() => { fetchUsage(); }, [fetchUsage]);
 
-  const hasActiveSub = usage?.has_subscription && usage?.status === 'active';
+  const hasActiveSub = usage?.has_subscription && ['active', 'trial'].includes(usage?.status);
   const remainingMinutes = usage?.remaining_seconds ? Math.floor(usage.remaining_seconds / 60) : 0;
 
   const onDrop = useCallback(async (acceptedFiles) => {

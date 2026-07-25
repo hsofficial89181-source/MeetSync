@@ -13,7 +13,7 @@ async function getCurrentPeriod(workspaceId) {
   const { rows: [sub] } = await pool.query(
     `SELECT s.current_period_start, s.current_period_end
      FROM subscriptions s
-     WHERE s.workspace_id = $1 AND s.status NOT IN ('canceled')
+     WHERE s.workspace_id = $1 AND s.status NOT IN ('canceled', 'expired')
      ORDER BY created_at DESC
      LIMIT 1`,
     [workspaceId]
@@ -119,7 +119,7 @@ async function recordUsage(workspaceId, meetingId, durationSeconds) {
 async function checkQuotaAvailable(workspaceId, durationSeconds) {
   const usage = await getWorkspaceUsage(workspaceId);
 
-  if (!usage.has_subscription || usage.status !== 'active') {
+  if (!usage.has_subscription || !['active', 'trial'].includes(usage.status)) {
     return {
       allowed: false,
       reason: 'no_subscription',

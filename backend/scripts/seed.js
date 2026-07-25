@@ -76,19 +76,32 @@ async function seed() {
     );
     const userByEmail = Object.fromEntries(dbUsers.map(u => [u.email, u]));
 
+    // ── Trial subscription ────────────────────────────────────
+    const { rows: [trialPlan] } = await client.query(
+      `SELECT id FROM subscription_plans WHERE code = 'starter' AND is_active = TRUE LIMIT 1`
+    );
+    if (trialPlan) {
+      await client.query(
+        `INSERT INTO subscriptions (workspace_id, plan_id, status, current_period_start, current_period_end, trial_ends_at)
+         VALUES ($1, $2, 'trial', NOW(), NOW() + INTERVAL '7 days', NOW() + INTERVAL '7 days')
+         ON CONFLICT (workspace_id) DO NOTHING`,
+        [workspaceId, trialPlan.id]
+      );
+    }
+
     // ── Team members ──────────────────────────────────────────
     const teamMembers = [
-      { name: 'Ali Khan',    email: 'ali@acme.com',   role: 'Product',     slack_user_id: 'U001', jira_account_id: 'jira-001' },
-      { name: 'Sara Malik',  email: 'sara@acme.com',  role: 'Engineering', slack_user_id: 'U002', jira_account_id: 'jira-002' },
-      { name: 'Zaid Khan',   email: 'zaid@acme.com',  role: 'Engineering', slack_user_id: 'U003', jira_account_id: 'jira-003' },
-      { name: 'Nida Rehman', email: 'nida@acme.com',  role: 'Design',      slack_user_id: 'U004', jira_account_id: 'jira-004' },
-      { name: 'Omar Sheikh', email: 'omar@acme.com',  role: 'DevOps',      slack_user_id: 'U005', jira_account_id: 'jira-005' },
+      { name: 'Ali Khan',    email: 'ali@acme.com',   role: 'Product'     },
+      { name: 'Sara Malik',  email: 'sara@acme.com',  role: 'Engineering' },
+      { name: 'Zaid Khan',   email: 'zaid@acme.com',  role: 'Engineering' },
+      { name: 'Nida Rehman', email: 'nida@acme.com',  role: 'Design'      },
+      { name: 'Omar Sheikh', email: 'omar@acme.com',  role: 'DevOps'      },
     ];
     for (const m of teamMembers) {
       await client.query(
-        `INSERT INTO team_members (workspace_id, name, email, role, slack_user_id, jira_account_id)
-         VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (workspace_id, email) DO NOTHING`,
-        [workspaceId, m.name, m.email, m.role, m.slack_user_id, m.jira_account_id]
+        `INSERT INTO team_members (workspace_id, name, email, role)
+         VALUES ($1,$2,$3,$4) ON CONFLICT (workspace_id, email) DO NOTHING`,
+        [workspaceId, m.name, m.email, m.role]
       );
     }
 
@@ -197,13 +210,21 @@ async function seed() {
       );
     }
 
-    // ── Integrations ──────────────────────────────────────────
-    const integrations = ['slack', 'notion', 'jira'];
-    for (const provider of integrations) {
+    // ── Integrations (per-user) ──────────────────────────────
+    const aliId = userByEmail['ali@acme.com']?.id;
+    const saraId = userByEmail['sara@acme.com']?.id;
+    const userIntegrations = [
+      { userId: aliId,  provider: 'slack',  config: { bot_token: 'xoxb-demo-ali', team_id: 'T001', team_name: 'Acme Corp', channel: '#general' } },
+      { userId: aliId,  provider: 'notion', config: { token: 'secret_demo_ali', workspace_name: 'Acme Corp' } },
+      { userId: saraId, provider: 'slack',  config: { bot_token: 'xoxb-demo-sara', team_id: 'T001', team_name: 'Acme Corp', channel: '#engineering' } },
+    ];
+    for (const i of userIntegrations) {
+      if (!i.userId) continue;
       await client.query(
-        `INSERT INTO integrations (workspace_id, provider, enabled, config)
-         VALUES ($1,$2,TRUE,'{}') ON CONFLICT (workspace_id, provider) DO NOTHING`,
-        [workspaceId, provider]
+        `INSERT INTO integrations (workspace_id, user_id, provider, enabled, config)
+         VALUES ($1,$2,$3,TRUE,$4)
+         ON CONFLICT (workspace_id, user_id, provider) DO NOTHING`,
+        [workspaceId, i.userId, i.provider, JSON.stringify(i.config)]
       );
     }
 

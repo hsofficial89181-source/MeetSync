@@ -11,6 +11,7 @@ import Analytics     from './components/pages/Analytics';
 import Search        from './components/pages/Search';
 import Settings      from './components/pages/Settings';
 import Billing        from './components/pages/Billing';
+import LandingPage    from './components/pages/LandingPage';
 import Login          from './components/pages/Login';
 import Register       from './components/pages/Register';
 import ForgotPassword from './components/pages/ForgotPassword';
@@ -39,7 +40,7 @@ import { useStore }      from './store';
 import { useAuthStore }  from './store/auth';
 import { useThemeStore } from './store/theme';
 
-function RequireAuth({ children }) {
+function RequireAuth({ children, redirectTo }) {
   const { isAuthenticated, isLoading } = useAuthStore();
   const location = useLocation();
 
@@ -54,6 +55,10 @@ function RequireAuth({ children }) {
       </div>
     </div>
   );
+
+  if (redirectTo) {
+    return isAuthenticated ? <Navigate to={redirectTo} replace /> : children;
+  }
 
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
@@ -95,28 +100,35 @@ export default function App() {
         <Route path="/privacy-policy"           element={<PrivacyPolicy />} />
         <Route path="/terms-conditions"         element={<TermsConditions />} />
 
-        {/* Protected app shell */}
+        {/* Landing page — unauthenticated users see it, authenticated users redirect to dashboard */}
         <Route
           path="/"
+          element={
+            <RequireAuth redirectTo="/dashboard">
+              <LandingPage />
+            </RequireAuth>
+          }
+        />
+
+        {/* Protected app shell — pathless layout route wraps all authenticated pages */}
+        <Route
           element={
             <RequireAuth>
               <Layout />
             </RequireAuth>
           }
         >
-          <Route index element={<Navigate to="/dashboard" replace />} />
-
           {/* Each page wrapped in its own ErrorBoundary so one crash doesn't kill the nav */}
-          <Route path="dashboard"    element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
-          <Route path="meetings"     element={<ErrorBoundary><Meetings /></ErrorBoundary>} />
-          <Route path="meetings/:id" element={<ErrorBoundary><MeetingDetail /></ErrorBoundary>} />
-          <Route path="tasks"        element={<ErrorBoundary><TaskBoard /></ErrorBoundary>} />
-          <Route path="analytics"    element={<ErrorBoundary><Analytics /></ErrorBoundary>} />
-          <Route path="integrations" element={<ErrorBoundary><Integrations /></ErrorBoundary>} />
-          <Route path="team"         element={<ErrorBoundary><Team /></ErrorBoundary>} />
-          <Route path="search"       element={<ErrorBoundary><Search /></ErrorBoundary>} />
-          <Route path="settings"     element={<ErrorBoundary><Settings /></ErrorBoundary>} />
-          <Route path="billing"       element={<ErrorBoundary><Billing /></ErrorBoundary>} />
+          <Route path="/dashboard"    element={<ErrorBoundary><Dashboard /></ErrorBoundary>} />
+          <Route path="/meetings"     element={<ErrorBoundary><Meetings /></ErrorBoundary>} />
+          <Route path="/meetings/:id" element={<ErrorBoundary><MeetingDetail /></ErrorBoundary>} />
+          <Route path="/tasks"        element={<ErrorBoundary><TaskBoard /></ErrorBoundary>} />
+          <Route path="/analytics"    element={<ErrorBoundary><Analytics /></ErrorBoundary>} />
+          <Route path="/integrations" element={<ErrorBoundary><Integrations /></ErrorBoundary>} />
+          <Route path="/team"         element={<ErrorBoundary><Team /></ErrorBoundary>} />
+          <Route path="/search"       element={<ErrorBoundary><Search /></ErrorBoundary>} />
+          <Route path="/settings"     element={<ErrorBoundary><Settings /></ErrorBoundary>} />
+          <Route path="/billing"       element={<ErrorBoundary><Billing /></ErrorBoundary>} />
         </Route>
 
         {/* Admin Panel Routes */}

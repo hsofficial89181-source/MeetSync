@@ -26,6 +26,8 @@ export default function Layout() {
   const navigate  = useNavigate();
   const { user, workspace, logout } = useAuthStore();
   const { theme, toggleTheme }      = useThemeStore();
+  const isAdmin = user?.role === 'admin';
+  const navManage = isAdmin ? NAV_MANAGE : NAV_MANAGE.filter(i => i.to !== '/billing');
   const [notifCount, setNotifCount] = useState(0);
   const [notifs,     setNotifs]     = useState([]);
   const [showNotifs, setShowNotifs] = useState(false);
@@ -92,7 +94,7 @@ export default function Layout() {
           </NavLink>
         ))}
         <div style={{ fontSize: 10, color: 'var(--text3)', letterSpacing: '1.5px', textTransform: 'uppercase', padding: '0 8px', margin: '14px 0 6px' }}>Manage</div>
-        {NAV_MANAGE.map(({ to, icon: Icon, label }) => (
+        {navManage.map(({ to, icon: Icon, label }) => (
           <NavLink key={to} to={to} onClick={() => setMobileSidebarOpen(false)} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
             <Icon size={14} /><span>{label}</span>
           </NavLink>

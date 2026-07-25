@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { BarChart2, CreditCard, FileText } from 'lucide-react';
+import { BarChart2, CreditCard, FileText, Lock } from 'lucide-react';
 import PageHeader from '../ui/PageHeader';
 import { useSubscriptionStore } from '../../store/subscription';
+import { useAuthStore } from '../../store/auth';
 import UsageTab from './billing/UsageTab';
 import ManageSubscriptionTab from './billing/ManageSubscriptionTab';
 import InvoicesTab from './billing/InvoicesTab';
@@ -14,13 +15,30 @@ const TABS = [
 ];
 
 export default function Billing() {
+  const { user } = useAuthStore();
+  const isAdmin = user?.role === 'admin';
   const [tab, setTab] = useState('manage');
   const [checkoutPlan, setCheckoutPlan] = useState(null);
   const { fetchAll, fetchSubscription, fetchUsage, fetchHistory, fetchInvoices } = useSubscriptionStore();
 
   useEffect(() => {
-    fetchAll();
-  }, [fetchAll]);
+    if (isAdmin) fetchAll();
+  }, [fetchAll, isAdmin]);
+
+  if (!isAdmin) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+        <PageHeader title="Billing & Subscription" subtitle="Manage your plan, usage, and invoices" />
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ textAlign: 'center' }}>
+            <Lock size={32} style={{ margin: '0 auto 12px', display: 'block', opacity: 0.3 }} />
+            <div style={{ fontSize: 14, color: 'var(--text2)', fontWeight: 500 }}>Admin access required</div>
+            <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 4 }}>Only workspace admins can view billing.</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>

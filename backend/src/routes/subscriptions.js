@@ -71,6 +71,20 @@ router.get('/current', async (req, res, next) => {
       return res.json({ subscription: null, plan: null });
     }
 
+    // Lazy trial expiration: if trial has ended, mark as expired
+    if (sub.status === 'trial' && sub.trial_ends_at && new Date(sub.trial_ends_at) < new Date()) {
+      await pool.query(
+        `UPDATE subscriptions SET status = 'expired', updated_at = NOW() WHERE id = $1`,
+        [sub.id]
+      );
+      await pool.query(
+        `INSERT INTO subscription_history (workspace_id, action, from_plan, to_plan, details)
+         VALUES ($1, 'trial_expired', $2, $2, $3)`,
+        [wid(req), sub.plan_code, JSON.stringify({ trial_ends_at: sub.trial_ends_at })]
+      );
+      sub.status = 'expired';
+    }
+
     let paymentMethod = null;
     if (sub.stripe_customer_id) {
       try {
@@ -89,6 +103,7 @@ router.get('/current', async (req, res, next) => {
         pending_plan_id: sub.pending_plan_id,
         pending_plan_code: sub.pending_plan_code,
         pending_plan_name: sub.pending_plan_name,
+        trial_ends_at: sub.trial_ends_at,
       },
       plan: {
         code: sub.plan_code,
@@ -198,14 +213,21 @@ router.post('/confirm-subscription', requireAdmin, async (req, res, next) => {
                    result.status === 'past_due' ? 'past_due' :
                    result.status;
 
+    // Check if converting from trial
+    const { rows: [existingSub ] } = await pool.query(
+      'SELECT status FROM subscriptions WHERE workspace_id = $1',
+      [wid(req)]
+    );
+    const isTrialConversion = existingSub?.status === 'trial';
+
     await pool.query(
       `INSERT INTO subscriptions (workspace_id, plan_id, status, stripe_subscription_id, stripe_customer_id,
-                                  current_period_start, current_period_end, cancel_at_period_end)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE)
+                                  current_period_start, current_period_end, cancel_at_period_end, trial_ends_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE, NULL)
        ON CONFLICT (workspace_id) DO UPDATE SET
          plan_id = $2, status = $3, stripe_subscription_id = $4, stripe_customer_id = $5,
          current_period_start = $6, current_period_end = $7, cancel_at_period_end = FALSE,
-         canceled_at = NULL, updated_at = NOW()`,
+         canceled_at = NULL, trial_ends_at = NULL, updated_at = NOW()`,
       [
         wid(req),
         plan.id,
@@ -219,8 +241,13 @@ router.post('/confirm-subscription', requireAdmin, async (req, res, next) => {
 
     await pool.query(
       `INSERT INTO subscription_history (workspace_id, action, to_plan, details)
-       VALUES ($1, 'created', $2, $3)`,
-      [wid(req), planCode, JSON.stringify({ stripe_subscription_id: result.subscriptionId })]
+       VALUES ($1, $2, $3, $4)`,
+      [
+        wid(req),
+        isTrialConversion ? 'trial_converted' : 'created',
+        planCode,
+        JSON.stringify({ stripe_subscription_id: result.subscriptionId }),
+      ]
     );
 
     try {

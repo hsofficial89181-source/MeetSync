@@ -16,6 +16,7 @@ const { createNotionPage }        = require('./notion');
 const { postSlackSummary }        = require('./slack');
 const { matchTeamMembers }        = require('./teamMatcher');
 const { sendTaskAssignmentEmails }= require('./email');
+const { syncTaskToIntegrations }  = require('./taskSync');
 const { log }                     = require('../utils/logger');
 const { recordUsage }             = require('./usage');
 
@@ -102,6 +103,15 @@ async function processMeeting(meetingId, localPath, onProgress = () => {}) {
     await saveExtractedData(meetingId, meeting.workspace_id, tasks, extracted.decisions, extracted.summary);
     broadcast(meetingId, 'step', { step: 'saved', label: 'Saved to database', pct: 75 });
     onProgress('saved', 75);
+
+    // ── 4b. Per-task integration sync (fire-and-forget) ────────
+    for (const task of tasks) {
+      if (task.id && task.assignee_email) {
+        syncTaskToIntegrations(task.id).catch(err =>
+          log.warn('Per-task sync failed', { taskId: task.id, error: err.message })
+        );
+      }
+    }
 
     // ── 5. Email assignees (fire-and-forget) ───────────────────
     sendTaskAssignmentEmails(tasks, meeting).catch(err =>

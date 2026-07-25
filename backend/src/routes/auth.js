@@ -55,6 +55,23 @@ router.post('/register', authLimiter, async (req, res, next) => {
       [name, email.toLowerCase(), hash, workspace.id]
     );
 
+    // Auto-create 7-day free trial (Starter plan)
+    const { rows: [trialPlan] } = await client.query(
+      `SELECT id FROM subscription_plans WHERE code = 'starter' AND is_active = TRUE LIMIT 1`
+    );
+    if (trialPlan) {
+      await client.query(
+        `INSERT INTO subscriptions (workspace_id, plan_id, status, current_period_start, current_period_end, trial_ends_at)
+         VALUES ($1, $2, 'trial', NOW(), NOW() + INTERVAL '7 days', NOW() + INTERVAL '7 days')`,
+        [workspace.id, trialPlan.id]
+      );
+      await client.query(
+        `INSERT INTO subscription_history (workspace_id, action, to_plan, details)
+         VALUES ($1, 'trial_started', 'starter', $2)`,
+        [workspace.id, JSON.stringify({ trial_days: 7 })]
+      );
+    }
+
     await client.query('COMMIT');
 
     const accessToken = signAccess(user.id);

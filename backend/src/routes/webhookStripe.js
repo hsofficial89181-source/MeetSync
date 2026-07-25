@@ -100,7 +100,7 @@ async function handleCheckoutCompleted(session) {
      ON CONFLICT (workspace_id) DO UPDATE SET
        plan_id = $2, status = 'active', stripe_subscription_id = $3, stripe_customer_id = $4,
        current_period_start = $5, current_period_end = $6, cancel_at_period_end = FALSE,
-       canceled_at = NULL, updated_at = NOW()`,
+       canceled_at = NULL, trial_ends_at = NULL, updated_at = NOW()`,
     [
       workspaceId,
       plan.id,

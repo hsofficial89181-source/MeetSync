@@ -121,4 +121,105 @@ function groupBy(arr, key) {
   }, {});
 }
 
-module.exports = { postSlackSummary };
+/**
+ * Send a DM to an assignee about a specific task.
+ * Looks up Slack user ID by email if not already known.
+ * @param {object} task - Task row with title, priority, due_date, assignee_email
+ * @param {string} meetingTitle - Title of the source meeting
+ * @param {object} config - Integration config with bot_token
+ * @param {string} slackUserId - Slack user ID (from team_members or prior lookup)
+ * @returns {Promise<{ts: string, channel_id: string}>}
+ */
+async function sendSlackTaskDM(task, meetingTitle, config = {}, slackUserId) {
+  const token = config.bot_token || process.env.SLACK_BOT_TOKEN;
+  const headers = {
+    'Authorization': `Bearer ${token}`,
+    'Content-Type': 'application/json',
+  };
+
+  // If no slackUserId, try to look up by email
+  if (!slackUserId && task.assignee_email) {
+    try {
+      const { data: lookupData } = await axios.get('https://slack.com/api/users.lookupByEmail', {
+        headers,
+        params: { email: task.assignee_email },
+      });
+      if (lookupData.ok) {
+        slackUserId = lookupData.user.id;
+      }
+    } catch (err) {
+      console.warn(`Slack: Could not look up user by email ${task.assignee_email}:`, err.message);
+    }
+  }
+
+  if (!slackUserId) {
+    throw new Error(`No Slack user ID found for assignee ${task.assignee_email || task.assignee_name}`);
+  }
+
+  const priorityEmoji = { urgent: '🔴', high: '🟠', medium: '🟡', low: '🟢' }[task.priority] || '🟡';
+
+  const blocks = [
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `📋 *New task assigned to you* from *${meetingTitle}*`,
+      },
+    },
+    { type: 'divider' },
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `${priorityEmoji} *${task.title}*${task.description ? `\n${task.description}` : ''}`,
+      },
+    },
+    {
+      type: 'section',
+      fields: [
+        { type: 'mrkdwn', text: `*Priority*\n${task.priority || 'medium'}` },
+        { type: 'mrkdwn', text: `*Due Date*\n${task.due_date || 'Not set'}` },
+      ],
+    },
+  ];
+
+  const { data } = await axios.post(
+    'https://slack.com/api/chat.postMessage',
+    { channel: slackUserId, blocks },
+    { headers }
+  );
+
+  if (!data.ok) {
+    throw new Error(`Slack chat.postMessage failed: ${data.error}`);
+  }
+
+  return { ts: data.ts, channel_id: data.channel };
+}
+
+/**
+ * Delete a specific Slack message by timestamp and channel.
+ * @param {object} config - Integration config with bot_token
+ * @param {string} ts - Message timestamp
+ * @param {string} channelId - Channel ID where the message was posted
+ */
+async function deleteSlackMessage(config = {}, ts, channelId) {
+  const token = config.bot_token || process.env.SLACK_BOT_TOKEN;
+  const headers = {
+    'Authorization': `Bearer ${token}`,
+    'Content-Type': 'application/json',
+  };
+
+  const { data } = await axios.post(
+    'https://slack.com/api/chat.delete',
+    { channel: channelId, ts },
+    { headers }
+  );
+
+  if (!data.ok) {
+    throw new Error(`Slack chat.delete failed: ${data.error}`);
+  }
+
+  return true;
+}
+
+module.exports = { postSlackSummary, sendSlackTaskDM, deleteSlackMessage };

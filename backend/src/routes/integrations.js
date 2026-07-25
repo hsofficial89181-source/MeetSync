@@ -14,6 +14,7 @@ const axios    = require('axios');
 const { pool } = require('../models/migrate');
 const { requireAuth } = require('../middleware/auth');
 const { log }  = require('../utils/logger');
+const { markRemovedForUserProvider, syncPendingTasksForUser } = require('../services/taskSync');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -26,8 +27,8 @@ const SUPPORTED_PROVIDERS = [
 router.get('/', async (req, res, next) => {
   try {
     const { rows } = await pool.query(
-      'SELECT provider, enabled, last_synced_at FROM integrations WHERE workspace_id=$1',
-      [req.user.workspace_id]
+      'SELECT provider, enabled, last_synced_at FROM integrations WHERE user_id=$1',
+      [req.user.id]
     );
     const connected = new Map(rows.map(r => [r.provider, r]));
     const result = SUPPORTED_PROVIDERS.map(provider => ({
@@ -47,12 +48,20 @@ router.post('/:provider', async (req, res, next) => {
   }
   try {
     await pool.query(
-      `INSERT INTO integrations (workspace_id, provider, enabled, config)
-       VALUES ($1,$2,TRUE,$3)
-       ON CONFLICT (workspace_id, provider)
-       DO UPDATE SET enabled=TRUE, config=$3, updated_at=NOW()`,
-      [req.user.workspace_id, provider, JSON.stringify(req.body.config || {})]
+      `INSERT INTO integrations (workspace_id, user_id, provider, enabled, config)
+       VALUES ($1,$2,$3,TRUE,$4)
+       ON CONFLICT (workspace_id, user_id, provider)
+       DO UPDATE SET enabled=TRUE, config=$4, updated_at=NOW()`,
+      [req.user.workspace_id, req.user.id, provider, JSON.stringify(req.body.config || {})]
     );
+
+    // Flush pending task syncs for this user+provider
+    if (provider === 'slack' || provider === 'notion') {
+      syncPendingTasksForUser(req.user.id, provider).catch(err =>
+        log.warn('Pending task sync flush failed', { provider, error: err.message })
+      );
+    }
+
     res.json({ provider, enabled: true });
   } catch (err) { next(err); }
 });
@@ -61,9 +70,17 @@ router.post('/:provider', async (req, res, next) => {
 router.delete('/:provider', async (req, res, next) => {
   try {
     await pool.query(
-      "UPDATE integrations SET enabled=FALSE, config='{}', updated_at=NOW() WHERE workspace_id=$1 AND provider=$2",
-      [req.user.workspace_id, req.params.provider]
+      "UPDATE integrations SET enabled=FALSE, config='{}', updated_at=NOW() WHERE user_id=$1 AND provider=$2",
+      [req.user.id, req.params.provider]
     );
+
+    // Mark all task_integrations as removed for this user+provider
+    if (req.params.provider === 'slack' || req.params.provider === 'notion') {
+      markRemovedForUserProvider(req.user.id, req.params.provider).catch(err =>
+        log.warn('Failed to mark task integrations as removed', { provider: req.params.provider, error: err.message })
+      );
+    }
+
     res.json({ success: true });
   } catch (err) { next(err); }
 });
@@ -73,8 +90,8 @@ router.post('/:provider/test', async (req, res, next) => {
   const { provider } = req.params;
   try {
     const { rows } = await pool.query(
-      'SELECT config FROM integrations WHERE workspace_id=$1 AND provider=$2 AND enabled=TRUE',
-      [req.user.workspace_id, provider]
+      'SELECT config FROM integrations WHERE user_id=$1 AND provider=$2 AND enabled=TRUE',
+      [req.user.id, provider]
     );
     if (!rows[0]) return res.status(404).json({ error: `${provider} is not connected` });
 
@@ -112,8 +129,8 @@ router.post('/:provider/test', async (req, res, next) => {
     }
 
     await pool.query(
-      'UPDATE integrations SET last_synced_at=NOW() WHERE workspace_id=$1 AND provider=$2',
-      [req.user.workspace_id, provider]
+      'UPDATE integrations SET last_synced_at=NOW() WHERE user_id=$1 AND provider=$2',
+      [req.user.id, provider]
     );
 
     res.json({ success: true, message });

@@ -102,6 +102,7 @@ CREATE TABLE IF NOT EXISTS team_members (
 CREATE TABLE IF NOT EXISTS integrations (
   id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   workspace_id   UUID REFERENCES workspaces(id) ON DELETE CASCADE,
+  user_id        UUID REFERENCES users(id) ON DELETE CASCADE,
   provider       VARCHAR(50) NOT NULL,
   enabled        BOOLEAN DEFAULT FALSE,
   config         JSONB DEFAULT '{}',
@@ -110,6 +111,12 @@ CREATE TABLE IF NOT EXISTS integrations (
   updated_at     TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(workspace_id, provider)
 );
+
+-- Migrate integrations to per-user: add user_id column, update unique constraint
+ALTER TABLE integrations ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES users(id) ON DELETE CASCADE;
+ALTER TABLE integrations DROP CONSTRAINT IF EXISTS integrations_workspace_id_provider_key;
+ALTER TABLE integrations ADD CONSTRAINT integrations_workspace_user_provider_key UNIQUE(workspace_id, user_id, provider);
+CREATE INDEX IF NOT EXISTS idx_integrations_user ON integrations(user_id);
 
 CREATE TABLE IF NOT EXISTS notifications (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -214,6 +221,7 @@ CREATE TABLE IF NOT EXISTS subscriptions (
 CREATE INDEX IF NOT EXISTS idx_subscriptions_workspace ON subscriptions(workspace_id);
 ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS pending_plan_id INTEGER REFERENCES subscription_plans(id);
 ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS carry_over_seconds INTEGER DEFAULT 0;
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMPTZ;
 
 -- Invoices synced from Stripe
 CREATE TABLE IF NOT EXISTS invoices (
@@ -264,6 +272,23 @@ CREATE TABLE IF NOT EXISTS subscription_history (
   created_at   TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_sub_history_workspace ON subscription_history(workspace_id);
+
+-- Per-task integration sync tracking
+CREATE TABLE IF NOT EXISTS task_integrations (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  task_id         UUID REFERENCES tasks(id) ON DELETE CASCADE,
+  workspace_id    UUID REFERENCES workspaces(id) ON DELETE CASCADE,
+  user_id         UUID REFERENCES users(id) ON DELETE CASCADE,
+  provider        VARCHAR(50) NOT NULL,
+  status          VARCHAR(20) DEFAULT 'pending',
+  external_id     VARCHAR(200),
+  external_meta   JSONB DEFAULT '{}',
+  created_at      TIMESTAMPTZ DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(task_id, provider)
+);
+CREATE INDEX IF NOT EXISTS idx_task_integrations_task ON task_integrations(task_id);
+CREATE INDEX IF NOT EXISTS idx_task_integrations_user ON task_integrations(user_id, provider, status);
 
 -- Seed subscription plans (idempotent)
 INSERT INTO subscription_plans (code, name, price_cents, interval, hours_limit, stripe_price_id, sort_order)

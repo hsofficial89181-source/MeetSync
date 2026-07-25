@@ -11,7 +11,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { pool } = require('../models/migrate');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -32,7 +32,7 @@ router.get('/workspace', async (req, res, next) => {
 /**
  * PATCH /api/settings/workspace
  */
-router.patch('/workspace', async (req, res, next) => {
+router.patch('/workspace', requireAdmin, async (req, res, next) => {
   try {
     const { name, settings } = req.body;
     const updates = [];
@@ -140,33 +140,110 @@ router.get('/members', async (req, res, next) => {
 });
 
 /**
- * POST /api/settings/members/invite
- * Invite a new user to the workspace
+ * POST /api/settings/members
+ * Create a new workspace member with login access
  */
-router.post('/members/invite', async (req, res, next) => {
+router.post('/members', requireAdmin, async (req, res, next) => {
   try {
-    const { name, email, role = 'member' } = req.body;
+    const { name, email, role = 'member', password } = req.body;
     if (!name || !email) return res.status(400).json({ error: 'name and email required' });
+    if (!password || password.length < 8) return res.status(400).json({ error: 'password must be at least 8 characters' });
 
-    const tempPassword = Math.random().toString(36).slice(-10);
-    const hash = await bcrypt.hash(tempPassword, 12);
+    const lowerEmail = email.toLowerCase();
 
+    const { rows: existing } = await pool.query(
+      'SELECT id FROM users WHERE email = $1', [lowerEmail]
+    );
+    if (existing.length) return res.status(409).json({ error: 'Email already registered' });
+
+    const hash = await bcrypt.hash(password, 12);
     const { rows: [u] } = await pool.query(
       `INSERT INTO users (name, email, password_hash, role, workspace_id)
        VALUES ($1, $2, $3, $4, $5)
-       ON CONFLICT (email) DO NOTHING
-       RETURNING id, name, email, role`,
-      [name, email.toLowerCase(), hash, role, req.user.workspace_id]
+       RETURNING id, name, email, role, avatar_url, last_login, is_active, created_at`,
+      [name, lowerEmail, hash, role, req.user.workspace_id]
     );
 
-    if (!u) return res.status(409).json({ error: 'Email already registered' });
+    res.status(201).json(u);
+  } catch (err) { next(err); }
+});
 
-    // In production: send invitation email with temp password
-    res.status(201).json({
-      user: u,
-      tempPassword,
-      message: `Invited ${email}. Share the temp password: ${tempPassword}`,
-    });
+/**
+ * PATCH /api/settings/members/:id
+ * Update a workspace member's name, email, or role
+ */
+router.patch('/members/:id', requireAdmin, async (req, res, next) => {
+  try {
+    const { name, email, role } = req.body;
+
+    // Fetch old email before update for team_members sync
+    const { rows: [oldUser] } = await pool.query(
+      'SELECT email FROM users WHERE id = $1 AND workspace_id = $2',
+      [req.params.id, req.user.workspace_id]
+    );
+    if (!oldUser) return res.status(404).json({ error: 'Member not found' });
+
+    const updates = [];
+    const params = [];
+    let i = 1;
+
+    if (name)  { updates.push(`name = $${i++}`);  params.push(name); }
+    if (email) { updates.push(`email = $${i++}`); params.push(email.toLowerCase()); }
+    if (role)  { updates.push(`role = $${i++}`);  params.push(role); }
+
+    if (!updates.length) return res.status(400).json({ error: 'Nothing to update' });
+    updates.push(`updated_at = NOW()`);
+    params.push(req.user.workspace_id, req.params.id);
+
+    const { rows: [u] } = await pool.query(
+      `UPDATE users SET ${updates.join(', ')}
+       WHERE workspace_id = $${i++} AND id = $${i}
+       RETURNING id, name, email, role, avatar_url, last_login, is_active, created_at`,
+      params
+    );
+
+    // Sync email/name to team_members if exists
+    if (email || name) {
+      const tmSets = [];
+      const tmParams = [];
+      let j = 1;
+      if (name)  { tmSets.push(`name = $${j++}`);  tmParams.push(name); }
+      if (email) { tmSets.push(`email = $${j++}`); tmParams.push(email.toLowerCase()); }
+      tmParams.push(req.user.workspace_id, oldUser.email);
+      await pool.query(
+        `UPDATE team_members SET ${tmSets.join(', ')}
+         WHERE workspace_id = $${j++} AND email = $${j}`,
+        tmParams
+      );
+    }
+
+    res.json(u);
+  } catch (err) { next(err); }
+});
+
+/**
+ * DELETE /api/settings/members/:id
+ * Remove a workspace member (also removes from team_members)
+ */
+router.delete('/members/:id', requireAdmin, async (req, res, next) => {
+  try {
+    if (req.params.id === req.user.id) {
+      return res.status(400).json({ error: 'You cannot delete your own account' });
+    }
+
+    // Get email before deletion for team_members cleanup
+    const { rows: [u] } = await pool.query(
+      'SELECT email FROM users WHERE id = $1 AND workspace_id = $2',
+      [req.params.id, req.user.workspace_id]
+    );
+    if (!u) return res.status(404).json({ error: 'Member not found' });
+
+    await pool.query('DELETE FROM team_members WHERE workspace_id = $1 AND email = $2',
+      [req.user.workspace_id, u.email]);
+    await pool.query('DELETE FROM users WHERE id = $1 AND workspace_id = $2',
+      [req.params.id, req.user.workspace_id]);
+
+    res.json({ success: true });
   } catch (err) { next(err); }
 });
 
