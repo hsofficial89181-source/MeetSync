@@ -22,7 +22,9 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY src/ ./src/
 COPY scripts/ ./scripts/
 COPY package.json ./
+COPY prisma.config.ts ./
 COPY prisma/ ./prisma/
+RUN npx prisma generate
 
 # Temp directory for audio processing
 RUN mkdir -p /tmp/meetsync-uploads && chown meetsync:meetsync /tmp/meetsync-uploads
