@@ -39,7 +39,7 @@ async function seedSuperAdmin() {
     );
 
     console.log('========================================');
-    console.log('Super Admin created successfully!');
+    console.log('Super Admin created successfully!!');
     console.log('========================================');
     console.log(`Email:    ${user.email}`);
     console.log(`Role:     ${user.role}`);
