@@ -23,6 +23,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.20.0",
     "@notionhq/client": "^2.2.14",
+    "@prisma/client": "^7.9.0",
     "assemblyai": "^4.3.2",
     "axios": "^1.6.7",
     "bcryptjs": "^2.4.3",
