@@ -35,6 +35,6 @@ EXPOSE 3001
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-  CMD wget -qO- http://localhost:3001/api/health/ready || exit 1
+  CMD wget -qO- http://localhost:5000/api/health/ready || exit 1
 
 CMD ["node", "src/index.js"]
