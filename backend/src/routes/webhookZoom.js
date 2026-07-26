@@ -19,7 +19,7 @@ const axios = require('axios');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 const fs = require('fs');
-const { pool } = require('../models/migrate');
+const { pool } = require('../db');
 const { enqueueMeeting } = require('../services/aiPipeline');
 
 const router = express.Router();

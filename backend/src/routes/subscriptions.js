@@ -15,7 +15,7 @@
  */
 
 const express = require('express');
-const { pool } = require('../models/migrate');
+const { pool } = require('../db');
 const { requireAuth } = require('../middleware/auth');
 const { log } = require('../utils/logger');
 const stripeService = require('../services/stripe');

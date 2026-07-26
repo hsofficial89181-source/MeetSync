@@ -10,7 +10,7 @@
 
 const express = require('express');
 const bcrypt = require('bcryptjs');
-const { pool } = require('../models/migrate');
+const { pool } = require('../db');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();

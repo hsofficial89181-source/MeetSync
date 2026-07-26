@@ -16,7 +16,7 @@ const { setupGracefulShutdown }= require('./utils/gracefulShutdown');
 const { log, requestLogger }   = require('./utils/logger');
 const { apiLimiter }           = require('./middleware/rateLimiter');
 const { xssSanitizer, httpsRedirect, securityHeaders, requestSizeGuard } = require('./middleware/security');
-const { pool }                 = require('./models/migrate');
+const { pool }                 = require('./db');
 
 // ── Route imports ──────────────────────────────────────────────────────────
 const authRouter          = require('./routes/auth');

@@ -86,7 +86,7 @@ export default function PrivacyPolicy() {
         <section style={{ marginBottom: 32 }}>
           <h2 style={{ fontSize: 20, fontWeight: 600, marginBottom: 16 }}>5. Contact Us</h2>
           <p style={{ lineHeight: 1.6, color: 'var(--text2)', marginBottom: 12 }}>
-            If you have any questions about this privacy policy or our privacy practices, please contact us at support@meetsync.ai.
+            If you have any questions about this privacy policy or our privacy practices, please contact us at support@meetsyncai.net.
           </p>
         </section>
       </main>

@@ -1,5 +1,5 @@
 const express = require('express');
-const { pool } = require('../../models/migrate');
+const { pool } = require('../../db');
 const { getWorkspaceUsage } = require('../../services/usage');
 
 const router = express.Router();

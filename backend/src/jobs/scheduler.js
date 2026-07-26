@@ -7,7 +7,7 @@
  *  - Every 24 hours: send due-date reminders (24h before due)
  */
 
-const { pool }            = require('../models/migrate');   // ← was './models/migrate'
+const { pool }            = require('../db');
 const { log }             = require('../utils/logger');      // ← was missing entirely
 
 function startScheduledJobs() {
@@ -61,7 +61,7 @@ async function runOverdueDigest() {
       ).join('\n');
 
       await transporter.sendMail({
-        from:    process.env.EMAIL_FROM || 'MeetSync AI <noreply@meetsync.ai>',
+        from:    process.env.EMAIL_FROM || 'MeetSync AI <noreply@meetsyncai.net>',
         to:      email,
         subject: `⚠️ You have ${tasks.length} overdue task${tasks.length > 1 ? 's' : ''} in MeetSync`,
         text:    `Hi ${name},\n\nThese tasks are overdue:\n\n${taskList}\n\nView them at: ${process.env.FRONTEND_URL}/tasks`,
@@ -111,7 +111,7 @@ async function runDueDateReminders() {
     for (const [email, tasks] of Object.entries(byEmail)) {
       const name = tasks[0].assignee_name || email.split('@')[0];
       await transporter.sendMail({
-        from:    process.env.EMAIL_FROM || 'MeetSync AI <noreply@meetsync.ai>',
+        from:    process.env.EMAIL_FROM || 'MeetSync AI <noreply@meetsyncai.net>',
         to:      email,
         subject: `⏰ Reminder: ${tasks.length} task${tasks.length > 1 ? 's' : ''} due tomorrow`,
         text:    `Hi ${name},\n\nThese tasks are due tomorrow:\n\n${tasks.map(t => `• ${t.title} (from "${t.meeting_title}")`).join('\n')}\n\nView them: ${process.env.FRONTEND_URL}/tasks`,

@@ -382,7 +382,7 @@ export default function SubscriptionDetail() {
                 <div>
                   <div style={{ fontSize: '22px', fontWeight: '700', color: 'var(--accent2)' }}>MeetSync AI</div>
                   <div style={{ fontSize: '11px', color: 'var(--text3)', marginTop: '2px' }}>Action Engine for Meetings</div>
-                  <div style={{ fontSize: '11px', color: 'var(--text3)' }}>support@meetsync.ai</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text3)' }}>support@meetsyncai.net</div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ fontSize: '20px', fontWeight: '700', color: 'var(--text)' }}>INVOICE</div>

@@ -1,0 +1,376 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Workspace {
+  id         String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid @map("id")
+  name       String         @db.VarChar(100) @map("name")
+  slug       String         @unique @db.VarChar(100) @map("slug")
+  settings   Json           @default("{}") @db.JsonB @map("settings")
+  createdAt  DateTime       @default(now()) @db.Timestamptz @map("created_at")
+  users               User[]
+  meetings            Meeting[]
+  tasks               Task[]
+  decisions           Decision[]
+  teamMembers         TeamMember[]
+  integrations        Integration[]
+  subscriptions       Subscription[]
+  invoices            Invoice[]
+  usageRecords        UsageRecord[]
+  subscriptionHistory SubscriptionHistory[]
+  taskIntegrations    TaskIntegration[]
+
+  @@map("workspaces")
+}
+
+model User {
+  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid @map("id")
+  workspaceId   String?        @db.Uuid @map("workspace_id")
+  name          String         @db.VarChar(100) @map("name")
+  email         String         @unique @db.VarChar(200) @map("email")
+  passwordHash  String         @db.Text @map("password_hash")
+  role          String         @default("member") @db.VarChar(20) @map("role")
+  avatarUrl     String?        @db.Text @map("avatar_url")
+  isActive      Boolean        @default(true) @map("is_active")
+  lastLogin     DateTime?      @db.Timestamptz @map("last_login")
+  createdAt     DateTime       @default(now()) @db.Timestamptz @map("created_at")
+  updatedAt     DateTime       @default(now()) @db.Timestamptz @map("updated_at")
+  workspace     Workspace?     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  refreshTokens RefreshToken[]
+  meetings      Meeting[]      @relation("MeetingCreatedBy")
+  taskComments  TaskComment[]
+  notifications Notification[]
+  shareLinks    ShareLink[]    @relation("ShareLinkCreatedBy")
+  passwordOtps  PasswordResetOtp[]
+  integrations  Integration[]
+  taskIntegrations TaskIntegration[]
+  subscriptionHistory SubscriptionHistory[] @relation("SubscriptionHistoryPerformedBy")
+
+  @@index([workspaceId])
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid @map("id")
+  userId    String?  @db.Uuid @map("user_id")
+  token     String   @unique @db.Text @map("token")
+  expiresAt DateTime @db.Timestamptz @map("expires_at")
+  createdAt DateTime @default(now()) @db.Timestamptz @map("created_at")
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@map("refresh_tokens")
+}
+
+model Meeting {
+  id               String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid @map("id")
+  workspaceId      String?      @db.Uuid @map("workspace_id")
+  title            String       @db.VarChar(255) @map("title")
+  source           String       @default("upload") @db.VarChar(50) @map("source")
+  durationSeconds  Int?         @map("duration_seconds")
+  participantCount Int          @default(0) @map("participant_count")
+  audioUrl         String?      @db.Text @map("audio_url")
+  transcript       Json?        @db.JsonB @map("transcript")
+  summary          String?      @db.Text @map("summary")
+  status           String       @default("pending") @db.VarChar(50) @map("status")
+  errorMessage     String?      @db.Text @map("error_message")
+  zoomMeetingId    String?      @db.VarChar(100) @map("zoom_meeting_id")
+  googleEventId    String?      @db.VarChar(100) @map("google_event_id")
+  createdBy        String?      @db.Uuid @map("created_by")
+  createdAt        DateTime     @default(now()) @db.Timestamptz @map("created_at")
+  updatedAt        DateTime     @default(now()) @db.Timestamptz @map("updated_at")
+  workspace        Workspace?   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  creator          User?        @relation("MeetingCreatedBy", fields: [createdBy], references: [id])
+  tasks            Task[]
+  decisions        Decision[]
+  shareLinks       ShareLink[]
+  usageRecords     UsageRecord[]
+
+  @@index([workspaceId])
+  @@index([status])
+  @@index([createdAt(sort: Desc)])
+  @@map("meetings")
+}
+
+model Task {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid @map("id")
+  meetingId      String?      @db.Uuid @map("meeting_id")
+  workspaceId    String?      @db.Uuid @map("workspace_id")
+  title          String       @db.Text @map("title")
+  description    String?      @db.Text @map("description")
+  assigneeName   String?      @db.VarChar(100) @map("assignee_name")
+  assigneeEmail  String?      @db.VarChar(200) @map("assignee_email")
+  dueDate        DateTime?    @db.Date @map("due_date")
+  priority       String       @default("medium") @db.VarChar(20) @map("priority")
+  status         String       @default("backlog") @db.VarChar(50) @map("status")
+  labels         String[]     @map("labels")
+  sourceQuote    String?      @db.Text @map("source_quote")
+  jiraIssueId    String?      @db.VarChar(100) @map("jira_issue_id")
+  notionPageId   String?      @db.VarChar(100) @map("notion_page_id")
+  linearIssueId  String?      @db.VarChar(100) @map("linear_issue_id")
+  createdAt      DateTime     @default(now()) @db.Timestamptz @map("created_at")
+  updatedAt      DateTime     @default(now()) @db.Timestamptz @map("updated_at")
+  meeting        Meeting?     @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  workspace      Workspace?   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  comments       TaskComment[]
+  taskIntegrations TaskIntegration[]
+
+  @@index([meetingId])
+  @@index([workspaceId])
+  @@index([status])
+  @@index([assigneeEmail])
+  @@index([dueDate])
+  @@map("tasks")
+}
+
+model Decision {
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid @map("id")
+  meetingId    String?    @db.Uuid @map("meeting_id")
+  workspaceId  String?    @db.Uuid @map("workspace_id")
+  description  String     @db.Text @map("description")
+  ownerName    String?    @db.VarChar(100) @map("owner_name")
+  agreedBy     String[]   @map("agreed_by")
+  sourceQuote  String?    @db.Text @map("source_quote")
+  createdAt    DateTime   @default(now()) @db.Timestamptz @map("created_at")
+  meeting      Meeting?   @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  workspace    Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([meetingId])
+  @@map("decisions")
+}
+
+model TeamMember {
+  id             String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid @map("id")
+  workspaceId    String?    @db.Uuid @map("workspace_id")
+  name           String     @db.VarChar(100) @map("name")
+  email          String     @db.VarChar(200) @map("email")
+  slackUserId    String?    @db.VarChar(50) @map("slack_user_id")
+  jiraAccountId  String?    @db.VarChar(100) @map("jira_account_id")
+  notionUserId   String?    @db.VarChar(100) @map("notion_user_id")
+  linearUserId   String?    @db.VarChar(100) @map("linear_user_id")
+  role           String?    @db.VarChar(100) @map("role")
+  createdAt      DateTime   @default(now()) @db.Timestamptz @map("created_at")
+  updatedAt      DateTime   @default(now()) @db.Timestamptz @map("updated_at")
+  workspace      Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, email])
+  @@map("team_members")
+}
+
+model Integration {
+  id            String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid @map("id")
+  workspaceId   String?    @db.Uuid @map("workspace_id")
+  userId        String?    @db.Uuid @map("user_id")
+  provider      String     @db.VarChar(50) @map("provider")
+  enabled       Boolean    @default(false) @map("enabled")
+  config        Json       @default("{}") @db.JsonB @map("config")
+  lastSyncedAt  DateTime?  @db.Timestamptz @map("last_synced_at")
+  createdAt     DateTime   @default(now()) @db.Timestamptz @map("created_at")
+  updatedAt     DateTime   @default(now()) @db.Timestamptz @map("updated_at")
+  workspace     Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user          User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId, provider])
+  @@index([userId])
+  @@map("integrations")
+}
+
+model Notification {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid @map("id")
+  userId    String?  @db.Uuid @map("user_id")
+  type      String   @db.VarChar(50) @map("type")
+  title     String   @db.Text @map("title")
+  body      String?  @db.Text @map("body")
+  link      String?  @db.Text @map("link")
+  read      Boolean  @default(false) @map("read")
+  createdAt DateTime @default(now()) @db.Timestamptz @map("created_at")
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@map("notifications")
+}
+
+model WebhookEvent {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid @map("id")
+  provider  String   @db.VarChar(50) @map("provider")
+  eventType String?  @db.VarChar(100) @map("event_type")
+  payload   Json?    @db.JsonB @map("payload")
+  processed Boolean  @default(false) @map("processed")
+  error     String?  @db.Text @map("error")
+  createdAt DateTime @default(now()) @db.Timestamptz @map("created_at")
+
+  @@map("webhook_events")
+}
+
+model TaskComment {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid @map("id")
+  taskId    String?  @db.Uuid @map("task_id")
+  userId    String?  @db.Uuid @map("user_id")
+  userName  String?  @db.VarChar(100) @map("user_name")
+  body      String   @db.Text @map("body")
+  createdAt DateTime @default(now()) @db.Timestamptz @map("created_at")
+  updatedAt DateTime @default(now()) @db.Timestamptz @map("updated_at")
+  task      Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@map("task_comments")
+}
+
+model ShareLink {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid @map("id")
+  meetingId String?  @db.Uuid @map("meeting_id")
+  token     String   @unique @db.VarChar(64) @map("token")
+  expiresAt DateTime? @db.Timestamptz @map("expires_at")
+  viewCount Int      @default(0) @map("view_count")
+  createdBy String?  @db.Uuid @map("created_by")
+  createdAt DateTime @default(now()) @db.Timestamptz @map("created_at")
+  meeting   Meeting? @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  creator   User?    @relation("ShareLinkCreatedBy", fields: [createdBy], references: [id])
+
+  @@index([token])
+  @@map("share_links")
+}
+
+model PasswordResetOtp {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid @map("id")
+  userId    String?  @db.Uuid @map("user_id")
+  otpHash   String   @db.Text @map("otp_hash")
+  expiresAt DateTime @db.Timestamptz @map("expires_at")
+  used      Boolean  @default(false) @map("used")
+  createdAt DateTime @default(now()) @db.Timestamptz @map("created_at")
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_otps")
+}
+
+model SubscriptionPlan {
+  id            Int      @id @default(autoincrement()) @map("id")
+  code          String   @unique @db.VarChar(50) @map("code")
+  name          String   @db.VarChar(100) @map("name")
+  priceCents    Int      @map("price_cents")
+  interval      String   @default("month") @db.VarChar(20) @map("interval")
+  hoursLimit    Int      @map("hours_limit")
+  stripePriceId String?  @db.Text @map("stripe_price_id")
+  isActive      Boolean  @default(true) @map("is_active")
+  sortOrder     Int      @default(0) @map("sort_order")
+  createdAt     DateTime @default(now()) @db.Timestamptz @map("created_at")
+  subscriptions       Subscription[]
+  pendingSubscriptions Subscription[] @relation("PendingPlan")
+  invoices            Invoice[]
+
+  @@map("subscription_plans")
+}
+
+model Subscription {
+  id                    String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid @map("id")
+  workspaceId           String?           @db.Uuid @map("workspace_id")
+  planId                Int?              @map("plan_id")
+  status                String            @default("inactive") @db.VarChar(50) @map("status")
+  stripeSubscriptionId  String?           @unique @db.Text @map("stripe_subscription_id")
+  stripeCustomerId      String?           @db.Text @map("stripe_customer_id")
+  currentPeriodStart    DateTime?         @db.Timestamptz @map("current_period_start")
+  currentPeriodEnd      DateTime?         @db.Timestamptz @map("current_period_end")
+  cancelAtPeriodEnd     Boolean           @default(false) @map("cancel_at_period_end")
+  canceledAt            DateTime?         @db.Timestamptz @map("canceled_at")
+  createdAt             DateTime          @default(now()) @db.Timestamptz @map("created_at")
+  updatedAt             DateTime          @default(now()) @db.Timestamptz @map("updated_at")
+  pendingPlanId         Int?              @map("pending_plan_id")
+  carryOverSeconds      Int               @default(0) @map("carry_over_seconds")
+  trialEndsAt           DateTime?         @db.Timestamptz @map("trial_ends_at")
+  workspace             Workspace?        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  plan                  SubscriptionPlan? @relation(fields: [planId], references: [id])
+  pendingPlan           SubscriptionPlan? @relation("PendingPlan", fields: [pendingPlanId], references: [id])
+  invoices              Invoice[]
+
+  @@unique([workspaceId])
+  @@index([workspaceId])
+  @@map("subscriptions")
+}
+
+model Invoice {
+  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid @map("id")
+  workspaceId      String?           @db.Uuid @map("workspace_id")
+  subscriptionId   String?           @db.Uuid @map("subscription_id")
+  stripeInvoiceId  String?           @unique @db.Text @map("stripe_invoice_id")
+  invoiceNumber    String            @db.VarChar(50) @map("invoice_number")
+  amountCents      Int               @map("amount_cents")
+  currency         String            @default("usd") @db.VarChar(10) @map("currency")
+  taxCents         Int               @default(0) @map("tax_cents")
+  totalCents       Int               @map("total_cents")
+  status           String            @default("open") @db.VarChar(50) @map("status")
+  periodStart      DateTime?         @db.Timestamptz @map("period_start")
+  periodEnd        DateTime?         @db.Timestamptz @map("period_end")
+  paidAt           DateTime?         @db.Timestamptz @map("paid_at")
+  pdfUrl           String?           @db.Text @map("pdf_url")
+  planId           Int?              @map("plan_id")
+  createdAt        DateTime          @default(now()) @db.Timestamptz @map("created_at")
+  updatedAt        DateTime          @default(now()) @db.Timestamptz @map("updated_at")
+  workspace        Workspace?        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  subscription     Subscription?     @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  plan             SubscriptionPlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId])
+  @@index([status])
+  @@map("invoices")
+}
+
+model UsageRecord {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid @map("id")
+  workspaceId         String?   @db.Uuid @map("workspace_id")
+  meetingId           String?   @db.Uuid @map("meeting_id")
+  durationSeconds     Int       @map("duration_seconds")
+  billingPeriodStart  DateTime? @db.Timestamptz @map("billing_period_start")
+  billingPeriodEnd    DateTime? @db.Timestamptz @map("billing_period_end")
+  createdAt           DateTime  @default(now()) @db.Timestamptz @map("created_at")
+  workspace           Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  meeting             Meeting?  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([workspaceId, billingPeriodStart])
+  @@map("usage_records")
+}
+
+model SubscriptionHistory {
+  id          String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid @map("id")
+  workspaceId String?    @db.Uuid @map("workspace_id")
+  action      String     @db.VarChar(100) @map("action")
+  fromPlan    String?    @db.VarChar(50) @map("from_plan")
+  toPlan      String?    @db.VarChar(50) @map("to_plan")
+  details     Json?      @db.JsonB @map("details")
+  performedBy String?    @db.Uuid @map("performed_by")
+  createdAt   DateTime   @default(now()) @db.Timestamptz @map("created_at")
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User?      @relation("SubscriptionHistoryPerformedBy", fields: [performedBy], references: [id])
+
+  @@index([workspaceId])
+  @@map("subscription_history")
+}
+
+model TaskIntegration {
+  id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid @map("id")
+  taskId       String?      @db.Uuid @map("task_id")
+  workspaceId  String?      @db.Uuid @map("workspace_id")
+  userId       String?      @db.Uuid @map("user_id")
+  provider     String       @db.VarChar(50) @map("provider")
+  status       String       @default("pending") @db.VarChar(20) @map("status")
+  externalId   String?      @db.VarChar(200) @map("external_id")
+  externalMeta Json         @default("{}") @db.JsonB @map("external_meta")
+  createdAt    DateTime     @default(now()) @db.Timestamptz @map("created_at")
+  updatedAt    DateTime     @default(now()) @db.Timestamptz @map("updated_at")
+  task         Task?        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  workspace    Workspace?   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user         User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, provider])
+  @@index([taskId])
+  @@index([userId, provider, status])
+  @@map("task_integrations")
+}
+

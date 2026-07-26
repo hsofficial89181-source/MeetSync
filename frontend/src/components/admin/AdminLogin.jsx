@@ -79,7 +79,7 @@ export default function AdminLogin() {
               <input
                 className="input"
                 type="email"
-                placeholder="admin@meetsync.ai"
+                placeholder="admin@meetsyncai.net"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 required

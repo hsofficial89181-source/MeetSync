@@ -8,7 +8,7 @@
 
 const express = require('express');
 const PDFDocument = require('pdfkit');
-const { pool } = require('../models/migrate');
+const { pool } = require('../db');
 const { requireAuth } = require('../middleware/auth');
 
 const router = express.Router();
@@ -117,7 +117,7 @@ router.get('/:id/pdf', async (req, res, next) => {
     // Header — Company branding
     doc.fontSize(22).fillColor('#5B6AF0').font('Helvetica-Bold').text('MeetSync AI', 50, 50);
     doc.fontSize(10).fillColor('#666').font('Helvetica').text('Action Engine for Meetings', 50, 78);
-    doc.text('support@meetsync.ai', 50, 92);
+    doc.text('support@meetsyncai.net', 50, 92);
 
     // Invoice title
     doc.fontSize(20).fillColor('#000').font('Helvetica-Bold').text('INVOICE', 400, 50);
@@ -176,7 +176,7 @@ router.get('/:id/pdf', async (req, res, next) => {
       50, 495
     );
     doc.text('Thank you for your business!', 50, 510);
-    doc.fillColor('#5B6AF0').text('MeetSync AI · support@meetsync.ai · https://meetsync.ai', 50, 525);
+    doc.fillColor('#5B6AF0').text('MeetSync AI · support@meetsyncai.net · https://meetsyncai.net', 50, 525);
 
     doc.end();
   } catch (err) { next(err); }

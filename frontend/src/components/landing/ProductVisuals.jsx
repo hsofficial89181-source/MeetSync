@@ -15,7 +15,7 @@ export function HeroDashboard() {
     <div className="lp-product-shell" aria-label="MeetSync product dashboard preview">
       <div className="lp-product-topbar">
         <div className="lp-window-controls"><i /><i /><i /></div>
-        <div className="lp-product-address"><span>app.meetsync.ai</span></div>
+        <div className="lp-product-address"><span>app.meetsyncai.net</span></div>
         <div className="lp-product-avatar">AL</div>
       </div>
       <div className="lp-product-body">

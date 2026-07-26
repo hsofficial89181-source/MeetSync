@@ -7,7 +7,7 @@
  */
 
 const express = require('express');
-const { pool } = require('../models/migrate');
+const { pool } = require('../db');
 const router = express.Router();
 
 const startTime = Date.now();

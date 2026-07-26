@@ -10,7 +10,7 @@
  *   - syncPendingTasksForUser(userId, provider): flush pending syncs when a user connects an integration
  */
 
-const { pool } = require('../models/migrate');
+const { pool } = require('../db');
 const { sendSlackTaskDM, deleteSlackMessage } = require('./slack');
 const { createNotionTask, deleteNotionBlock } = require('./notion');
 const { log } = require('../utils/logger');

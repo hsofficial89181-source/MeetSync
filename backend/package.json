@@ -6,7 +6,12 @@
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
     "worker": "node src/workers/pipelineWorker.js",
-    "migrate": "node src/models/migrate.js",
+    "migrate": "npx prisma migrate deploy",
+    "migrate:dev": "npx prisma migrate dev",
+    "migrate:status": "npx prisma migrate status",
+    "migrate:reset": "npx prisma migrate reset --force",
+    "prisma:studio": "npx prisma studio",
+    "db:seed": "node scripts/seedPlans.js",
     "test": "jest --runInBand --forceExit",
     "test:unit": "jest tests/unit --runInBand",
     "test:integration": "jest tests/integration --runInBand",
@@ -44,6 +49,7 @@
   "devDependencies": {
     "jest": "^29.7.0",
     "nodemon": "^3.0.3",
+    "prisma": "^7.9.0",
     "supertest": "^6.3.4"
   },
   "jest": {
@@ -54,7 +60,8 @@
     "collectCoverageFrom": [
       "src/**/*.js",
       "!src/workers/**",
-      "!src/models/migrate.js"
+      "!src/db.js",
+      "!src/generated/**"
     ],
     "coverageThreshold": {
       "global": {

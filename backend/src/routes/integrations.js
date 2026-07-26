@@ -11,7 +11,7 @@
 
 const express  = require('express');
 const axios    = require('axios');
-const { pool } = require('../models/migrate');
+const { pool } = require('../db');
 const { requireAuth } = require('../middleware/auth');
 const { log }  = require('../utils/logger');
 const { markRemovedForUserProvider, syncPendingTasksForUser } = require('../services/taskSync');

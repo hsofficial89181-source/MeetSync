@@ -14,7 +14,7 @@ const { Worker } = require('bullmq');
 const IORedis = require('ioredis');
 const fs = require('fs');
 const { processMeeting } = require('../services/aiPipeline');
-const { pool } = require('../models/migrate');
+const { pool } = require('../db');
 const { broadcastToMeeting } = require('../services/websocket');
 const { log } = require('../utils/logger');
 

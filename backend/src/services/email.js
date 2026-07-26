@@ -18,7 +18,7 @@ function getTransporter() {
   });
 }
 
-const FROM = process.env.EMAIL_FROM || 'MeetSync AI <noreply@meetsync.ai>';
+const FROM = process.env.EMAIL_FROM || 'MeetSync AI <noreply@meetsyncai.net>';
 
 const PRIORITY_EMOJI = { urgent: '🔴', high: '🟠', medium: '🟡', low: '🟢' };
 

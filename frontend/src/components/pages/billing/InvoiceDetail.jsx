@@ -79,7 +79,7 @@ export default function InvoiceDetail({ invoiceId, onBack }) {
           <div>
             <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--accent2)' }}>MeetSync AI</div>
             <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>Action Engine for Meetings</div>
-            <div style={{ fontSize: 11, color: 'var(--text3)' }}>support@meetsync.ai</div>
+            <div style={{ fontSize: 11, color: 'var(--text3)' }}>support@meetsyncai.net</div>
           </div>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)' }}>INVOICE</div>

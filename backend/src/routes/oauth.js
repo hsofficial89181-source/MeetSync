@@ -10,7 +10,7 @@
 const express = require('express');
 const axios = require('axios');
 const jwt = require('jsonwebtoken');
-const { pool } = require('../models/migrate');
+const { pool } = require('../db');
 const { requireAuth } = require('../middleware/auth');
 const { log } = require('../utils/logger');
 const { syncPendingTasksForUser } = require('../services/taskSync');

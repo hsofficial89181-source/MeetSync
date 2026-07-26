@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const { pool } = require('../models/migrate');
+const { pool } = require('../db');
 
 /**
  * Verifies JWT and attaches req.user

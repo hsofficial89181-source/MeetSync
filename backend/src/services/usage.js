@@ -4,7 +4,7 @@
  * Tracks and calculates meeting-hour usage per workspace per billing period.
  */
 
-const { pool } = require('../models/migrate');
+const { pool } = require('../db');
 
 /**
  * Get the current billing period for a workspace's subscription

@@ -4,7 +4,7 @@
  */
 
 const { Client } = require('@notionhq/client');
-const { pool } = require('../models/migrate');
+const { pool } = require('../db');
 
 async function createNotionPage(meeting, tasks, decisions, summary, config = {}) {
   const token = config.token || process.env.NOTION_TOKEN;

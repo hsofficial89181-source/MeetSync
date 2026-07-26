@@ -1,6 +1,6 @@
 require('dotenv').config();
 const bcrypt = require('bcryptjs');
-const { pool } = require('../models/migrate');
+const { pool } = require('../db');
 
 async function seedSuperAdmin() {
   const email = process.env.SUPERADMIN_EMAIL;
