@@ -27,7 +27,7 @@ async function syncTaskToIntegrations(taskId) {
   const { rows: [task] } = await pool.query(
     `SELECT t.*, m.title AS meeting_title
      FROM tasks t
-     JOIN meetings m ON m.id = t.meeting_id
+     LEFT JOIN meetings m ON m.id = t.meeting_id
      WHERE t.id = $1`,
     [taskId]
   );
@@ -41,46 +41,61 @@ async function syncTaskToIntegrations(taskId) {
     return;
   }
 
-  // Find the workspace user by email
+  // Try to find assignee as a registered user (for personal integrations).
+  // user may be null — we fall back to workspace integrations below.
   const { rows: [user] } = await pool.query(
     'SELECT id FROM users WHERE email = $1 AND workspace_id = $2',
     [task.assignee_email, task.workspace_id]
   );
-  if (!user) {
-    log.warn('syncTaskToIntegrations: assignee not a workspace user', { taskId, email: task.assignee_email });
-    return;
-  }
 
-  // Get team member info for Slack user ID
+  // Get team member info for Slack user ID lookup
   const { rows: [teamMember] } = await pool.query(
     'SELECT slack_user_id FROM team_members WHERE email = $1 AND workspace_id = $2',
     [task.assignee_email, task.workspace_id]
   );
 
-  // Fetch connected integrations for this user
-  const { rows: integrations } = await pool.query(
-    'SELECT * FROM integrations WHERE user_id = $1 AND enabled = TRUE AND provider = ANY($2)',
-    [user.id, PROVIDERS]
+  // Fetch workspace-level integrations as fallback (connected by admin)
+  const { rows: workspaceIntegrations } = await pool.query(
+    'SELECT * FROM integrations WHERE workspace_id = $1 AND enabled = TRUE AND provider = ANY($2)',
+    [task.workspace_id, PROVIDERS]
   );
-
-  const connectedProviders = new Map(integrations.map(i => [i.provider, i]));
+  const workspaceMap = new Map(workspaceIntegrations.map(i => [i.provider, i]));
 
   for (const provider of PROVIDERS) {
-    const integration = connectedProviders.get(provider);
+    // 1. Try assignee's personal integration first
+    let integration = null;
+    if (user) {
+      const { rows: [personal] } = await pool.query(
+        'SELECT * FROM integrations WHERE user_id = $1 AND provider = $2 AND enabled = TRUE',
+        [user.id, provider]
+      );
+      integration = personal || null;
+    }
+
+    // 2. Fall back to workspace integration (e.g. admin-connected Slack/Notion)
+    if (!integration) {
+      integration = workspaceMap.get(provider) || null;
+    }
+
+    // Determine the user_id to track in task_integrations
+    const syncUserId = user?.id ?? integration?.user_id;
 
     if (!integration) {
-      // Integration not connected — record pending sync
-      await upsertTaskIntegration(taskId, task.workspace_id, user.id, provider, 'pending', null, {});
-      log.info('syncTaskToIntegrations: recorded pending sync', { taskId, provider, userId: user.id });
+      if (syncUserId) {
+        await upsertTaskIntegration(taskId, task.workspace_id, syncUserId, provider, 'pending', null, {});
+        log.info('syncTaskToIntegrations: recorded pending sync', { taskId, provider, syncUserId });
+      } else {
+        log.info('syncTaskToIntegrations: no integration available', { taskId, provider });
+      }
       continue;
     }
 
     try {
       const result = await syncToProvider(task, provider, integration.config, teamMember?.slack_user_id);
-      await upsertTaskIntegration(taskId, task.workspace_id, user.id, provider, 'synced', result.external_id, result.external_meta || {});
+      await upsertTaskIntegration(taskId, task.workspace_id, syncUserId, provider, 'synced', result.external_id, result.external_meta || {});
       log.info('syncTaskToIntegrations: synced', { taskId, provider });
     } catch (err) {
-      await upsertTaskIntegration(taskId, task.workspace_id, user.id, provider, 'failed', null, { error: err.message });
+      await upsertTaskIntegration(taskId, task.workspace_id, syncUserId, provider, 'failed', null, { error: err.message });
       log.warn('syncTaskToIntegrations: sync failed', { taskId, provider, error: err.message });
     }
   }
@@ -194,6 +209,7 @@ async function syncPendingTasksForUser(userId, provider) {
       due_date: record.due_date,
       assignee_name: record.assignee_name,
       assignee_email: record.assignee_email,
+      meeting_title: record.meeting_title,
     };
 
     try {

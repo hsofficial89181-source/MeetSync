@@ -77,8 +77,21 @@ async function postSlackSummary(meeting, tasks, decisions, summary, config = {})
   // Post to channel
   await axios.post('https://slack.com/api/chat.postMessage', { channel, blocks }, { headers });
 
+  // Resolve Slack user IDs for assignees who only have an email (no slack_user_id in team_members)
+  const resolvedTasks = await Promise.all(tasks.map(async t => {
+    if (t.assignee_slack_id || !t.assignee_email) return t;
+    try {
+      const { data } = await axios.get('https://slack.com/api/users.lookupByEmail', {
+        headers,
+        params: { email: t.assignee_email },
+      });
+      if (data.ok) return { ...t, assignee_slack_id: data.user.id };
+    } catch (_) {}
+    return t;
+  }));
+
   // DM individual assignees about their tasks
-  const assigneeGroups = groupBy(tasks.filter(t => t.assignee_slack_id), 'assignee_slack_id');
+  const assigneeGroups = groupBy(resolvedTasks.filter(t => t.assignee_slack_id), 'assignee_slack_id');
   for (const [slackUserId, userTasks] of Object.entries(assigneeGroups)) {
     const dmBlocks = [
       {
