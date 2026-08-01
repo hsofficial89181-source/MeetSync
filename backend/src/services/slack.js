@@ -75,7 +75,10 @@ async function postSlackSummary(meeting, tasks, decisions, summary, config = {})
   }
 
   // Post to channel
-  await axios.post('https://slack.com/api/chat.postMessage', { channel, blocks }, { headers });
+  const { data: channelRes } = await axios.post('https://slack.com/api/chat.postMessage', { channel, blocks }, { headers });
+  if (!channelRes.ok) {
+    console.warn(`Slack: channel post failed: ${channelRes.error}`);
+  }
 
   // Resolve Slack user IDs for assignees who only have an email (no slack_user_id in team_members)
   const resolvedTasks = await Promise.all(tasks.map(async t => {
@@ -110,9 +113,18 @@ async function postSlackSummary(meeting, tasks, decisions, summary, config = {})
       })),
     ];
 
-    await axios
-      .post('https://slack.com/api/chat.postMessage', { channel: slackUserId, blocks: dmBlocks }, { headers })
-      .catch(err => console.warn(`Failed to DM ${slackUserId}:`, err.message));
+    try {
+      const { data: dmRes } = await axios.post(
+        'https://slack.com/api/chat.postMessage',
+        { channel: slackUserId, blocks: dmBlocks },
+        { headers }
+      );
+      if (!dmRes.ok) {
+        console.warn(`Slack: DM to ${slackUserId} failed: ${dmRes.error}`);
+      }
+    } catch (err) {
+      console.warn(`Slack: DM to ${slackUserId} error:`, err.message);
+    }
   }
 
   console.log(`Slack: Posted summary to ${channel}, DM'd ${Object.keys(assigneeGroups).length} assignees`);
@@ -159,6 +171,8 @@ async function sendSlackTaskDM(task, meetingTitle, config = {}, slackUserId) {
       });
       if (lookupData.ok) {
         slackUserId = lookupData.user.id;
+      } else {
+        console.warn(`Slack: users.lookupByEmail failed for ${task.assignee_email}: ${lookupData.error}`);
       }
     } catch (err) {
       console.warn(`Slack: Could not look up user by email ${task.assignee_email}:`, err.message);

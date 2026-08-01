@@ -39,7 +39,7 @@ function buildAuthUrl(req, provider, state) {
         'https://slack.com/oauth/v2/authorize?' +
         new URLSearchParams({
           client_id: process.env.SLACK_CLIENT_ID || '',
-          scope: 'chat:write,channels:read,users:read,channels:join',
+          scope: 'chat:write,channels:read,users:read,users:read.email,channels:join,im:write',
           redirect_uri: callbackUrl(req, 'slack'),
           state,
         })
@@ -183,6 +183,67 @@ async function exchangeCode(req, provider, code) {
   }
 }
 
+/**
+ * After a successful Slack OAuth, fetch the workspace's Slack user list
+ * and populate team_members.slack_user_id by matching email addresses.
+ */
+async function syncSlackUserIds(workspaceId, botToken) {
+  try {
+    const headers = { Authorization: `Bearer ${botToken}` };
+    const members = [];
+    let cursor = undefined;
+
+    // Paginate through all Slack users
+    do {
+      const { data } = await axios.get('https://slack.com/api/users.list', {
+        headers,
+        params: { cursor, limit: 200 },
+      });
+      if (!data.ok) {
+        log.warn('syncSlackUserIds: users.list failed', { error: data.error });
+        return;
+      }
+      members.push(...data.members);
+      cursor = data.response_metadata?.next_cursor;
+    } while (cursor);
+
+    // Build email → slack_user_id map (only active, non-bot users)
+    const emailMap = new Map();
+    for (const m of members) {
+      if (!m.deleted && !m.is_bot && m.profile?.email) {
+        emailMap.set(m.profile.email.toLowerCase(), m.id);
+      }
+    }
+
+    if (emailMap.size === 0) {
+      log.info('syncSlackUserIds: no Slack users with emails found', { workspaceId });
+      return;
+    }
+
+    // Fetch all team_members for this workspace
+    const { rows: teamMembers } = await pool.query(
+      'SELECT id, email FROM team_members WHERE workspace_id = $1',
+      [workspaceId]
+    );
+
+    let updated = 0;
+    for (const tm of teamMembers) {
+      const slackId = emailMap.get(tm.email.toLowerCase());
+      if (slackId) {
+        await pool.query(
+          'UPDATE team_members SET slack_user_id = $1 WHERE id = $2',
+          [slackId, tm.id]
+        );
+        updated++;
+      }
+    }
+
+    log.info('syncSlackUserIds: updated team_members', { workspaceId, updated, total: teamMembers.length });
+  } catch (err) {
+    log.warn('syncSlackUserIds: failed', { workspaceId, error: err.message });
+  }
+}
+
 // ── GET /:provider/start ────────────────────────────────────────────────────
 router.get('/:provider/start', requireAuth, (req, res) => {
   const { provider } = req.params;
@@ -251,6 +312,13 @@ router.get('/:provider/callback', async (req, res) => {
     );
 
     log.info(`OAuth connected: ${provider}`, { workspaceId: payload.workspace_id, userId: payload.user_id });
+
+    // After Slack OAuth, sync team_members.slack_user_id from Slack's user list
+    if (provider === 'slack' && config.bot_token) {
+      syncSlackUserIds(payload.workspace_id, config.bot_token).catch(err =>
+        log.warn('Slack user ID sync failed', { workspaceId: payload.workspace_id, error: err.message })
+      );
+    }
 
     // Flush pending task syncs for this user+provider
     if (provider === 'slack' || provider === 'notion') {
